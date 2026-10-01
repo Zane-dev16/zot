@@ -130,6 +130,25 @@ devicectl device install app --device 5A3DC1B6-4993-5CD6-A696-DD53903DCB89 Zot.a
 
 APNs result measured locally. No p8 file was found in home maxdepth. Backend is src push dot js stub. It returns ok false with skipped apns-not-configured. Push stays off until an account holder adds a key.
 
+Device retry 2026-10-01 measured in tmp zot-device-retry.log. Log holds 296 lines. Unlock failed with wrong passphrase. Build succeeded with signing disabled. Codesign verify failed as unsigned. Install failed on missing signature. Settings show signing off. Identity in this log lists Y8FVTH86T8. Next step is one keychain approval on loki console. Then rerun device build plus install.
+
+Evidence follows.
+
+```text
+(deprecated) password to unlock login.keychain-db: security: SecKeychainItemSetAccessWithPassword: The user name or passphrase you entered is not correct.
+** BUILD SUCCEEDED **
+BUILD_SSH_EXIT:0
+Zot.app: code object is not signed at all
+CODESIGN_EXIT:1
+VERIFY_EXIT:1
+ERROR: Failed to install the app on the device. (com.apple.dt.CoreDeviceError error 3002)
+NSLocalizedFailureReason = This app cannot be installed because its integrity could not be verified.
+LibMISErrorNumber = -402620388
+INSTALL_EXIT:1
+CODE_SIGNING_ALLOWED = NO
+CODE_SIGNING_REQUIRED = NO
+```
+
 Next steps in the list below.
 
 1. Run keychain approval then device build plus install on loki.
