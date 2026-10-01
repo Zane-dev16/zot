@@ -1,0 +1,14 @@
+[Unit]
+Description=zot daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/zot
+ExecStart=/usr/bin/node /opt/zot/src/daemon2.js
+Restart=always
+RestartSec=5
+Environment=PORT=8787
+
+[Install]
+WantedBy=multi-user.target
