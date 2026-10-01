@@ -7,6 +7,7 @@
     "start": "node src/daemon2.js",
     "health": "node src/server.js",
     "daemon2": "node src/daemon2.js",
+    "server2": "node src/server2.js",
     "migrate": "node src/db.js"
   }
 }
