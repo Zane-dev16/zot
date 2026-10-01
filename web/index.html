@@ -1,7 +1,28 @@
 <!doctype html>
-<meta charset="utf-8" />
-<title>zot chat</title>
-<h1>zot chat</h1>
-<p>Placeholder. It will post to localhost health server next.</p>
-<input id="box" placeholder="type here" />
-<button>Send</button>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>zot chat</title>
+  <link rel="stylesheet" href="/style.css" />
+  <main>
+    <header>
+      <h1>zot chat</h1>
+      <p id="status">connecting</p>
+    </header>
+    <section id="auth">
+      <input
+        id="token"
+        type="password"
+        placeholder="device token"
+        autocomplete="off"
+      />
+      <button id="saveToken" type="button">Save</button>
+    </section>
+    <section id="log" aria-live="polite"></section>
+    <form id="composer">
+      <input id="box" placeholder="type here" autocomplete="off" />
+      <button type="submit">Send</button>
+    </form>
+  </main>
+  <script src="/app.js"></script>
+</html>
