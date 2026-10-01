@@ -4,7 +4,9 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "start": "node daemon.js",
-    "health": "node src/server.js"
+    "start": "node src/daemon2.js",
+    "health": "node src/server.js",
+    "daemon2": "node src/daemon2.js",
+    "migrate": "node src/db.js"
   }
 }
