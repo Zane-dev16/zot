@@ -6,6 +6,7 @@ const http = require("http");
 const path = require("path");
 
 const { openDb, DATA_DIR, version } = require("./db");
+const { createHandler } = require("./api");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = "127.0.0.1";
@@ -68,6 +69,7 @@ function serveWeb(req, res) {
 }
 
 function createServer(db, bootId, startedAt) {
+	const handleApi = createHandler(db);
 	return http.createServer((req, res) => {
 		const url = req.url.split("?")[0];
 		if (req.method === "GET" && url === "/healthz") {
@@ -81,6 +83,7 @@ function createServer(db, bootId, startedAt) {
 			res.end(body);
 			return;
 		}
+		if (handleApi(req, res)) return;
 		if (req.method === "GET") {
 			serveWeb(req, res);
 			return;
