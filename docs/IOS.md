@@ -64,10 +64,10 @@ Install and launch proof on simulator ZotTest:
 UDID: 50849F6B-BD99-405B-9F24-AE0BC7B359CB
 xcrun simctl boot <UDID>
 xcrun simctl install <UDID> ~/zot-ios/build/Debug-iphonesimulator/Zot.app
-xcrun simctl launch <UDID> com.zot.app
+xcrun simctl launch <UDID> com.zanishlabs.zot
 ```
 
-Result: install exit 0. Launch exit 0. listapps shows com.zot.app as Zot.
+Result: install exit 0. Launch exit 0. listapps shows com.zanishlabs.zot as Zot.
 
 Project scaffold. No Xcode project existed in the repo. Only four Swift files existed. Staging dir /root/zot/ios holds the buildable copy plus Zot.xcodeproj.
 
@@ -77,7 +77,7 @@ Files in staging:
 - ContentView.swift copied from repo ios plus two local fixes
 - Keychain.swift copied from repo ios
 - ZotApp.swift copied from repo ios
-- Zot.xcodeproj/project.pbxproj minimal app target, bundle com.zot.app
+- Zot.xcodeproj/project.pbxproj minimal app target, bundle com.zanishlabs.zot
 
 Remote layout on the Mac: ~/zot-ios/Zot holds sources. ~/zot-ios/Zot.xcodeproj holds the project.
 

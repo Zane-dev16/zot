@@ -1,6 +1,6 @@
 # Zot App ID path for push
 
-**Context.** Bundle is com.zot.app. Team is 36V92GAJBT. Current wildcard profile has no aps-environment. Push needs an explicit App ID.
+**Context.** Bundle is com.zanishlabs.zot. Team is 36V92GAJBT. Current wildcard profile has no aps-environment. Push needs an explicit App ID.
 
 **Portal.** Create the explicit App ID in the portal.
 
@@ -8,7 +8,7 @@ Portal steps follow.
 
 1. Open Identifiers in the developer portal.
 2. Create a new App ID of type App.
-3. Select Explicit and enter com.zot.app.
+3. Select Explicit and enter com.zanishlabs.zot.
 4. Enable the Push Notifications capability.
 5. Save the App ID.
 6. Create a development provisioning profile for this App ID.
@@ -26,7 +26,7 @@ Draft file is Zot.entitlements in this folder.
 
 Patch steps follow.
 
-1. Set PRODUCT_BUNDLE_IDENTIFIER to com.zot.app.
+1. Set PRODUCT_BUNDLE_IDENTIFIER to com.zanishlabs.zot.
 2. Set DEVELOPMENT_TEAM to 36V92GAJBT.
 3. Set CODE_SIGN_ENTITLEMENTS to Zot.entitlements.
 4. Enable automatic signing or select the new explicit profile.
@@ -36,4 +36,4 @@ Patch steps follow.
 
 **Verify.** Confirm the profile contains aps-environment. Confirm a device build installs and registers for push.
 
-**Status.** Proof landed on loki on 2026-10-01. Entitlements file holds aps-environment development at ios slash Zot.entitlements. Project patch adds the file reference and the group entry and CODE_SIGN_ENTITLEMENTS in Debug and Release and the Push capability. Build settings proof shows CODE_SIGN_ENTITLEMENTS present. Local and remote entitlements files match. Bundle id mismatch remains open. Remote uses com.zanishlabs.zot. Task names com.zot.app. Portal step still needs the account holder. Profile refresh still needs an Xcode run. Full diff lives at slash tmp slash zot-push-cap.log.
+**Status.** Proof landed on loki on 2026-10-01. Entitlements file holds aps-environment development at ios slash Zot.entitlements. Project patch adds the file reference and the group entry and CODE_SIGN_ENTITLEMENTS in Debug and Release and the Push capability. Build settings proof shows CODE_SIGN_ENTITLEMENTS present. Local and remote entitlements files match. Bundle id is synced. Remote and docs use com.zanishlabs.zot. Portal step still needs the account holder. Profile refresh still needs an Xcode run. Full diff lives at slash tmp slash zot-push-cap.log.
