@@ -53,3 +53,9 @@ GET /api/v1/stream is a WebSocket upgrade, auth by token query
 ```
 
 Note on pair confirm. The iOS stub calls it without auth. The server currently enforces auth. Decide one model before shipping pairing.
+
+Approvals and activity
+
+All routes here need Bearer auth. Approve and Cancel act on one run. Activity reads tool events for one run. Retry now is a browser stream action and calls no route here.
+
+POST /api/v1/runs/:id/approve resumes a run in waiting_tool. POST /api/v1/runs/:id/cancel ends a run. GET /api/v1/runs lists runs for the Activity panel. GET /api/v1/runs/:id/events lists tool events and supports since id. Approve needs waiting_tool state. Cancel needs active state. Bad transitions return 409.

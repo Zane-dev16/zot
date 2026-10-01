@@ -9,6 +9,7 @@
     "daemon2": "node src/daemon2.js",
     "server2": "node src/server2.js",
     "zot-run": "scripts/zot-run.sh",
-    "migrate": "node src/db.js"
+    "migrate": "node src/db.js",
+    "eval": "node scripts/eval.js"
   }
 }

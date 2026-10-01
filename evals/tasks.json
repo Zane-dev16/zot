@@ -1,0 +1,1 @@
+[{"expect": "echo", "input": "hello"}, {"expect": "memory_fts", "input": "memory_fts"}, {"expect": "run.done", "input": "run.done"}]

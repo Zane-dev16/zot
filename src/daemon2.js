@@ -7,6 +7,9 @@ const path = require("path");
 
 const { openDb, DATA_DIR, version } = require("./db");
 const { createHandler } = require("./api");
+const events = require("./events");
+const stream = require("./stream");
+const runner = require("./runner");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = "127.0.0.1";
@@ -99,7 +102,27 @@ function boot(opts = {}) {
 	const bootId = newId();
 	const startedAt = Date.now();
 	reconcile(db, bootId, startedAt);
+	runner.ensureModelColumn(db);
+	const log = events.createLog();
 	const server = createServer(db, bootId, startedAt);
+	const streamHandle = stream.attach(server, { db, log });
+	const publish = (type, data) => streamHandle.publish(type, data);
+	const runTick = setInterval(() => {
+		try {
+			runner.pollOnce(db, { publish });
+		} catch {
+			// one bad run must not kill the loop
+		}
+	}, runner.RUNNER_INTERVAL_MS);
+	runTick.unref();
+	const schedTick = setInterval(() => {
+		try {
+			runner.tickScheduler(db, { publish });
+		} catch {
+			// one bad job must not kill the loop
+		}
+	}, runner.SCHEDULER_INTERVAL_MS);
+	schedTick.unref();
 	const beat = setInterval(() => {
 		db.prepare("UPDATE daemon SET heartbeat_at = ? WHERE id = ?").run(
 			Date.now(),
@@ -117,6 +140,9 @@ function boot(opts = {}) {
 			// db already closed
 		}
 		clearInterval(beat);
+		clearInterval(runTick);
+		clearInterval(schedTick);
+		streamHandle.close();
 		server.close(() => {
 			db.close();
 			process.exit(0);
@@ -138,7 +164,7 @@ function boot(opts = {}) {
 			console.log(`zot daemon2 on http://${HOST}:${port} boot ${bootId}`);
 		});
 	}
-	return { db, server, bootId, startedAt, shutdown };
+	return { db, server, bootId, startedAt, shutdown, log, stream: streamHandle };
 }
 
 if (require.main === module) {

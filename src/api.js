@@ -4,6 +4,8 @@ const crypto = require("node:crypto");
 const auth = require("./auth");
 const runs = require("./runs");
 const memory = require("./memory");
+const scheduler = require("./scheduler");
+const router = require("./router");
 
 function send(res, status, obj) {
 	const body = JSON.stringify(obj);
@@ -58,6 +60,7 @@ function mapRun(r) {
 		title: r.title,
 		prompt: r.prompt,
 		state: r.state,
+		model: r.model === undefined ? undefined : r.model,
 		attempt: r.attempt,
 		createdAt: r.created_at,
 		updatedAt: r.updated_at,
@@ -236,8 +239,17 @@ function createHandler(db) {
 				prompt: body.prompt,
 				ownerDeviceId: body.ownerDeviceId || null,
 			});
+			const model =
+				typeof body.model === "string" && router.MODELS[body.model]
+					? body.model
+					: router.DEFAULT_MODEL;
+			try {
+				db.exec("ALTER TABLE agent_run ADD COLUMN model TEXT");
+			} catch {
+				// column already exists
+			}
 			db.prepare(
-				"INSERT INTO agent_run(id, title, prompt, state, attempt, created_at, updated_at, finished_at, last_heartbeat, owner_device_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				"INSERT INTO agent_run(id, title, prompt, state, attempt, created_at, updated_at, finished_at, last_heartbeat, owner_device_id, model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			).run(
 				run.id,
 				run.title,
@@ -249,6 +261,7 @@ function createHandler(db) {
 				run.finishedAt,
 				run.lastHeartbeat,
 				run.ownerDeviceId,
+				model,
 			);
 			send(res, 201, { run: mapRun(toDbRow(run)) });
 			return;
@@ -355,9 +368,28 @@ function createHandler(db) {
 				return;
 			}
 			if (q) {
+				try {
+					const fts = memory.buildFtsQuery(q, { limit });
+					const ids = db
+						.prepare(fts.sql)
+						.all(...fts.params)
+						.map((r) => r.rowid);
+					if (ids.length > 0) {
+						const marks = ids.map(() => "?").join(",");
+						const rows = db
+							.prepare(
+								`SELECT * FROM memory_item WHERE rowid IN (${marks}) ORDER BY updated_at DESC`,
+							)
+							.all(...ids);
+						send(res, 200, { items: rows.map(mapMemory), via: "fts" });
+						return;
+					}
+				} catch {
+					// FTS unavailable, fall through to LIKE
+				}
 				const { sql, params } = memory.buildLikeQuery(q, { runId, limit });
 				const rows = db.prepare(sql).all(...params);
-				send(res, 200, { items: rows.map(mapMemory) });
+				send(res, 200, { items: rows.map(mapMemory), via: "like" });
 				return;
 			}
 			const rows = db
@@ -453,6 +485,12 @@ function createHandler(db) {
 			}
 			const id = newId();
 			const now = Date.now();
+			let nextRunAt = now;
+			try {
+				nextRunAt = scheduler.nextCronRunAt(body.cron, now);
+			} catch {
+				// bad cron still stores the job, runs never fire
+			}
 			db.prepare(
 				"INSERT INTO scheduler_job(id, name, cron, prompt, enabled, next_run_at, last_run_id) VALUES (?, ?, ?, ?, ?, ?, NULL)",
 			).run(
@@ -461,7 +499,7 @@ function createHandler(db) {
 				body.cron,
 				body.prompt,
 				body.enabled === false ? 0 : 1,
-				now,
+				nextRunAt,
 			);
 			send(res, 201, {
 				job: mapJob(

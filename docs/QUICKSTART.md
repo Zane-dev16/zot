@@ -42,3 +42,7 @@ Fetch runs and post new runs
 ```
 
 LAN uses plain http for v0. Keep it on the home LAN. Revoke lost devices with DELETE on devices id. See docs API for routes.
+
+Browser chat
+
+Open root path in a browser. Status shows live or reconnecting. Reconnect backs off and shows retry count. Press Retry now to retry at once. Runs in waiting_tool show Approve and Cancel. Approve resumes the run. Cancel ends the run. Activity lists per run tool events. Press Refresh to reload events. Poll events with since id.

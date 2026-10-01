@@ -21,6 +21,39 @@ h1 {
 	margin: 0;
 	color: #9a9;
 }
+#status::before {
+	content: "";
+	display: inline-block;
+	width: 0.5rem;
+	height: 0.5rem;
+	border-radius: 50%;
+	background: #888;
+	margin-right: 0.4rem;
+}
+#status[data-kind="live"]::before {
+	background: #3fb950;
+}
+#status[data-kind="connecting"]::before {
+	background: #d29922;
+}
+#status[data-kind="reconnecting"]::before {
+	background: #d29922;
+}
+#status[data-kind="offline"]::before {
+	background: #888;
+}
+#status[data-kind="auth"]::before {
+	background: #f85149;
+}
+#connRow {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+}
+#retryCount {
+	color: #999;
+	font-size: 0.85rem;
+}
 #auth,
 #composer {
 	display: flex;
@@ -40,6 +73,9 @@ button {
 	border-radius: 0.25rem;
 	background: #2f6feb;
 	color: #fff;
+}
+button:disabled {
+	opacity: 0.5;
 }
 #log {
 	flex: 1;
@@ -63,4 +99,55 @@ article h2 {
 .state {
 	margin: 0.25rem 0 0;
 	color: #9a9;
+}
+.approvalRow {
+	display: flex;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+}
+.approvalRow .danger {
+	background: #a33;
+}
+#activityWrap {
+	border-top: 1px solid #333;
+	padding-top: 0.75rem;
+}
+#activityWrap h2 {
+	font-size: 1rem;
+	margin: 0 0 0.5rem;
+}
+#activityRow {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+}
+#activityError {
+	color: #f85149;
+	font-size: 0.85rem;
+}
+#activity {
+	list-style: none;
+	margin: 0.5rem 0 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+#activity li {
+	border: 1px solid #333;
+	border-radius: 0.25rem;
+	padding: 0.4rem;
+}
+.activityRun {
+	background: #222;
+	width: 100%;
+	text-align: left;
+}
+.activityEvents {
+	margin-top: 0.4rem;
+	color: #9a9;
+}
+.activityEvents ul {
+	margin: 0.25rem 0 0;
+	padding-left: 1rem;
 }

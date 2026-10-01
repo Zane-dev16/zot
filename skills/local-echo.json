@@ -1,0 +1,1 @@
+{"description": "Local echo skill plus one MCP stub tool", "name": "local-echo", "tools": [{"command": "local", "name": "local.echo"}, {"mcp": {"args": ["--stub"], "command": "mcp-stub"}, "name": "mcp.ping"}]}

@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS agent_run(
   updated_at INTEGER NOT NULL,
   finished_at INTEGER,
   last_heartbeat INTEGER NOT NULL,
-  owner_device_id TEXT
+  owner_device_id TEXT,
+  model TEXT
 );
 CREATE TABLE IF NOT EXISTS tool_lease(
   id TEXT PRIMARY KEY,

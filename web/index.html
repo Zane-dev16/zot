@@ -7,7 +7,11 @@
   <main>
     <header>
       <h1>zot chat</h1>
-      <p id="status">connecting</p>
+      <p id="status" data-kind="connecting">connecting</p>
+      <div id="connRow">
+        <span id="retryCount" aria-live="polite"></span>
+        <button id="retryNow" type="button">Retry now</button>
+      </div>
     </header>
     <section id="auth">
       <input
@@ -23,6 +27,20 @@
       <input id="box" placeholder="type here" autocomplete="off" />
       <button type="submit">Send</button>
     </form>
+    <section id="activityWrap">
+      <h2>Activity</h2>
+      <div id="activityRow">
+        <button id="refreshActivity" type="button">Refresh</button>
+        <span id="activityError" aria-live="polite"></span>
+      </div>
+      <ul id="activity"></ul>
+    </section>
+    <template id="approvalTemplate">
+      <div class="approvalRow">
+        <button type="button" data-action="approve">Approve</button>
+        <button type="button" data-action="cancel">Cancel</button>
+      </div>
+    </template>
   </main>
   <script src="/app.js"></script>
 </html>

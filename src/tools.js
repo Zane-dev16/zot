@@ -3,6 +3,7 @@
 const crypto = require("crypto");
 const path = require("path");
 const events = require("./events");
+const skills = require("./skills");
 
 const DEFAULT_ALLOWLIST = ["read_file", "write_file", "shell"];
 const NETWORK_TOOLS = ["fetch"];
@@ -227,7 +228,13 @@ async function executeTool(input) {
 		);
 	}
 	try {
-		const raw = input.executor({
+		const fallback = (req) => {
+			const hit = skills.execSkill(req.tool, req.args);
+			if (hit) return hit;
+			throw new Error("no executor");
+		};
+		const execFn = input.executor || fallback;
+		const raw = execFn({
 			tool: input.tool,
 			args: input.args,
 			root: input.root,
