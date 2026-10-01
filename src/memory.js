@@ -1,5 +1,7 @@
 "use strict";
 
+// Memory recall storage. Prefer SQLite FTS5 via memory_fts. Use buildLikeQuery
+// when FTS5 is unavailable. Both builders are pure and return { sql, params }.
 const crypto = require("node:crypto");
 
 function newId() {

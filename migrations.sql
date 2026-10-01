@@ -65,3 +65,15 @@ CREATE TABLE IF NOT EXISTS tool_event(
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_tool_event_run ON tool_event(run_id);
+CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(key, value);
+CREATE TRIGGER IF NOT EXISTS memory_item_ai AFTER INSERT ON memory_item BEGIN
+  INSERT INTO memory_fts(rowid, key, value) VALUES (new.rowid, new.key, new.value);
+END;
+CREATE TRIGGER IF NOT EXISTS memory_item_ad AFTER DELETE ON memory_item BEGIN
+  INSERT INTO memory_fts(memory_fts, rowid, key, value) VALUES ('delete', old.rowid, old.key, old.value);
+END;
+CREATE TRIGGER IF NOT EXISTS memory_item_au AFTER UPDATE ON memory_item BEGIN
+  INSERT INTO memory_fts(memory_fts, rowid, key, value) VALUES ('delete', old.rowid, old.key, old.value);
+  INSERT INTO memory_fts(rowid, key, value) VALUES (new.rowid, new.key, new.value);
+END;
+INSERT INTO memory_fts(rowid, key, value) SELECT rowid, key, value FROM memory_item WHERE rowid NOT IN (SELECT rowid FROM memory_fts);
