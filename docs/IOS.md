@@ -99,17 +99,38 @@ idevice_id not present on the Mac
 
 Wifi device test is reachable through devicectl. The iPhone shows available paired.
 
-Signing status:
+Signing status measured on loki over ssh.
 
+Identity is Apple Development imf.999kg at gmail. Team suffix in cert is 36V92GAJBT. Earlier doc used Y8FVTH86T8. That value was wrong. Profile is iOS Team Provisioning Profile star. UUID is 9c25417c dedf 439b acf2 5ff6c8fa7815. App ID is wildcard star. Expiry is 2027-06-27. Profile team is 36V92GAJBT. Device UDID 00008140 000178A1362B001C is in profile. iPhone developer mode is enabled.
+
+Device build result measured in gateway log.
+
+```text
+Signing Identity is Apple Development imf.999kg at gmail
+Provisioning Profile is iOS Team Provisioning Profile star
+Zot.app errSecInternalComponent
+Command CodeSign failed with a nonzero exit code
+BUILD FAILED
+BUILD_EXIT 65
 ```
-security find-identity -v -p codesigning
-Apple Development: imf.999kg@gmail.com (Y8FVTH86T8), 1 valid identity
+
+Simulator result measured in ssh output.
+
+```text
+Simulator target BUILD SUCCEEDED
 ```
 
-Simulator builds use signing off. No provisioning profile exists yet for com.zot.app. Physical device install is the known next blocker. It needs a team scoped build with DEVELOPMENT_TEAM Y8FVTH86T8 plus a provisioning profile for the iPhone. That step was not attempted in this wave.
+Install was not run. Codesign verification reads code object is not signed at all. Cause is ssh keychain isolation. Retry needs one keychain approval on loki console. Then run the commands in the list below.
 
-Next steps:
+```text
+security set-key-partition-list -S apple-tool apple codesign -s login.keychain-db
+xcodebuild -project Zot.xcodeproj -scheme Zot -configuration Debug -destination generic/platform=iOS -allowProvisioningUpdates build
+devicectl device install app --device 5A3DC1B6-4993-5CD6-A696-DD53903DCB89 Zot.app
+```
 
-1. Port the ContentView fix and Zot.xcodeproj into the repo ios dir.
-2. Attempt a signed device build for the paired iPhone.
-3. Add push and pairing end to end against the local daemon.
+APNs result measured locally. No p8 file was found in home maxdepth. Backend is src push dot js stub. It returns ok false with skipped apns-not-configured. Push stays off until an account holder adds a key.
+
+Next steps in the list below.
+
+1. Run keychain approval then device build plus install on loki.
+2. Add push and pairing end to end against the local daemon.
