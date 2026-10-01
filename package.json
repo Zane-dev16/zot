@@ -5,9 +5,10 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/daemon2.js",
-    "health": "node src/server.js",
+    "health": "curl -sf http://127.0.0.1:8787/healthz",
     "daemon2": "node src/daemon2.js",
     "server2": "node src/server2.js",
+    "zot-run": "scripts/zot-run.sh",
     "migrate": "node src/db.js"
   }
 }
