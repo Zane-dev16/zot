@@ -1,17 +1,12 @@
-const http = require("http");
+"use strict";
 
-const server = http.createServer((req, res) => {
-	if (req.url === "/health") {
-		res.writeHead(200, { "content-type": "text/plain" });
-		res.end("ok");
-		return;
-	}
-	res.writeHead(404, { "content-type": "text/plain" });
-	res.end("not found");
-});
+// Deprecated. Canonical boot lives in src/daemon2.js.
+// Use npm start or node src/daemon2.js instead.
+
+console.warn("zot: src/server.js is deprecated. Use src/daemon2.js.");
+
+module.exports = require("./daemon2");
 
 if (require.main === module) {
-	server.listen(3000, () => console.log("zot listening on 3000"));
+	require("./daemon2").boot();
 }
-
-module.exports = server;
