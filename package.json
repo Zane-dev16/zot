@@ -1,0 +1,10 @@
+{
+  "name": "zot",
+  "version": "0.0.1",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node daemon.js",
+    "health": "node src/server.js"
+  }
+}
