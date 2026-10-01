@@ -1,12 +1,12 @@
 # iOS
 
+Date: 2026-10-01. Host: MacBook Air ARM64 Darwin 25.5.0. Xcode 26.6 build 17F113.
+
+## Pairing
+
 Zot iOS talks to the same daemon as the browser UI. It pairs over LAN with a six digit code. It stores the device token in Keychain. It never logs the token.
 
-## Routes used
-
-The app uses these paths from tmp zot arch.
-
-List:
+Routes used from tmp zot arch:
 
 ```text
 POST /api/v1/pair/confirm
@@ -17,11 +17,7 @@ GET /healthz
 
 Auth is a bearer token on every route except health and pairing start. Pairing is rate limited to five tries per minute. Tokens are 256 bit random hex. The server stores only hashes.
 
-## Files
-
-The stub lives in ios on Linux and in tmp zot ios stub on the Mac.
-
-List:
+Files:
 
 ```text
 ios/ZotApp.swift owns the app entry point
@@ -30,9 +26,7 @@ ios/ApiClient.swift owns HTTP calls to api v1
 ios/ContentView.swift owns the pairing screen and the chat list
 ```
 
-## Pairing flow
-
-The browser calls pair start and shows a six digit code. The phone enters the code within five minutes. The server issues a device token. The phone saves it in Keychain. Later launches load it from Keychain.
+Pairing flow. The browser calls pair start and shows a six digit code. The phone enters the code within five minutes. The server issues a device token. The phone saves it in Keychain. Later launches load it from Keychain.
 
 Steps:
 
@@ -46,28 +40,76 @@ The app fetches runs and can post new runs
 
 Codes are numeric only. The app rejects non numeric input. The app shows one error line on failure.
 
-## LAN and transport note
+LAN and transport note. LAN uses plain http for v0. This matches the daemon bind model. Default bind is loopback. LAN bind is on only during pairing. Production should use https with a LAN certificate or a tunnel. Do not expose plain http beyond the home LAN. Revoke tokens with DELETE api v1 devices id.
 
-LAN uses plain http for v0. This matches the daemon bind model. Default bind is loopback. LAN bind is on only during pairing. Production should use https with a LAN certificate or a tunnel. Do not expose plain http beyond the home LAN. Revoke tokens with DELETE api v1 devices id.
+Keychain. Service is zot token. Account is device token. Load runs at launch. Save runs after pair confirm. Delete runs on Unpair. No token goes to UserDefaults. No token goes to logs.
 
-## Keychain
+## Build proof
 
-Service is zot token. Account is device token. Load runs at launch. Save runs after pair confirm. Delete runs on Unpair. No token goes to UserDefaults. No token goes to logs.
+Simulator build succeeds. App installs and launches on a booted simulator.
 
-## Mac proof
+Commands run on the Mac over ssh as irellzane@loki:
 
-Remote stub was built over ssh on an ARM Mac. Xcode exists but no full xcodebuild ran. Proof is swift version plus file list.
-
-Output:
-
-```text
-Darwin Irells-MacBook-Air-2.local 25.5.0 Darwin Kernel Version 25.5.0 Mon Apr 27 20:40:51 PDT 2026 root:xnu-12377.121.6~2/RELEASE_ARM64_T8112 arm64
-swift-driver version 1.148.6 Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101)
-Target arm64-apple-macosx26.0
-/tmp/zot-ios-stub/Zot/ApiClient.swift 61 lines
-/tmp/zot-ios-stub/Zot/ContentView.swift 98 lines
-/tmp/zot-ios-stub/Zot/Keychain.swift 42 lines
-/tmp/zot-ios-stub/Zot/ZotApp.swift 12 lines
+```
+xcodebuild -project Zot.xcodeproj -target Zot -configuration Debug \
+  -destination 'generic/platform=iOS Simulator' \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY='' build
 ```
 
-Local check is ls ios on Linux. Remote check is uname plus swift version over ssh. Both passed.
+Result: BUILD SUCCEEDED. Output app at ~/zot-ios/build/Debug-iphonesimulator/Zot.app.
+
+Install and launch proof on simulator ZotTest:
+
+```
+UDID: 50849F6B-BD99-405B-9F24-AE0BC7B359CB
+xcrun simctl boot <UDID>
+xcrun simctl install <UDID> ~/zot-ios/build/Debug-iphonesimulator/Zot.app
+xcrun simctl launch <UDID> com.zot.app
+```
+
+Result: install exit 0. Launch exit 0. listapps shows com.zot.app as Zot.
+
+Project scaffold. No Xcode project existed in the repo. Only four Swift files existed. Staging dir /root/zot/ios holds the buildable copy plus Zot.xcodeproj.
+
+Files in staging:
+
+- ApiClient.swift copied from repo ios
+- ContentView.swift copied from repo ios plus two local fixes
+- Keychain.swift copied from repo ios
+- ZotApp.swift copied from repo ios
+- Zot.xcodeproj/project.pbxproj minimal app target, bundle com.zot.app
+
+Remote layout on the Mac: ~/zot-ios/Zot holds sources. ~/zot-ios/Zot.xcodeproj holds the project.
+
+Two fixes were needed to get a green build:
+
+1. ContentView used a State var named error. Inside catch blocks that name binds the caught error. Assignments failed. Fix renames the State var to errorMessage.
+2. The handwritten project had no SDKROOT. The first build compiled against macOS and iOS only modifiers failed. Fix sets SDKROOT to iphoneos in both target configs.
+
+Device output:
+
+```
+xcrun devicectl list devices
+Irells iPhone, id 5A3DC1B6-4993-5CD6-A696-DD53903DCB89, available paired
+Irells Apple Watch, id CDCCE167-FAB8-53E4-B3F7-EB882818B96F, unavailable at check time
+xcrun simctl list runtimes
+iOS 26.5 (23F77) com.apple.CoreSimulator.SimRuntime.iOS-26-5
+idevice_id not present on the Mac
+```
+
+Wifi device test is reachable through devicectl. The iPhone shows available paired.
+
+Signing status:
+
+```
+security find-identity -v -p codesigning
+Apple Development: imf.999kg@gmail.com (Y8FVTH86T8), 1 valid identity
+```
+
+Simulator builds use signing off. No provisioning profile exists yet for com.zot.app. Physical device install is the known next blocker. It needs a team scoped build with DEVELOPMENT_TEAM Y8FVTH86T8 plus a provisioning profile for the iPhone. That step was not attempted in this wave.
+
+Next steps:
+
+1. Port the ContentView fix and Zot.xcodeproj into the repo ios dir.
+2. Attempt a signed device build for the paired iPhone.
+3. Add push and pairing end to end against the local daemon.

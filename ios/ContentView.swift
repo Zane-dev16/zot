@@ -5,7 +5,7 @@ struct ContentView: View {
     @State private var code = ""
     @State private var host = "http://zot.local:8787"
     @State private var runs: [AgentRun] = []
-    @State private var error = ""
+    @State private var errorMessage = ""
     @State private var prompt = ""
 
     var body: some View {
@@ -20,7 +20,6 @@ struct ContentView: View {
         Form {
             Section("Server") {
                 TextField("Base URL", text: $host)
-                    .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
             }
             Section("Pairing code") {
@@ -28,7 +27,7 @@ struct ContentView: View {
                     .keyboardType(.numberPad)
                 Button("Pair") { Task { await pair() } }
             }
-            if !error.isEmpty { Text(error).foregroundColor(.red) }
+            if !errorMessage.isEmpty { Text(errorMessage).foregroundColor(.red) }
             Text("Ask the browser UI for the code. It expires in 5 minutes.")
                 .font(.footnote)
         }
@@ -49,7 +48,7 @@ struct ContentView: View {
                         }
                     }
                 }
-                if !error.isEmpty { Text(error).foregroundColor(.red) }
+                if !errorMessage.isEmpty { Text(errorMessage).foregroundColor(.red) }
             }
             .navigationTitle("Zot")
             .toolbar {
@@ -61,18 +60,18 @@ struct ContentView: View {
     }
 
     private func pair() async {
-        error = ""
+        errorMessage = ""
         session.client.baseURL = host
         let trimmed = code.trimmingCharacters(in: .whitespaces)
         guard trimmed.count == 6, Int(trimmed) != nil else {
-            error = "Code must be 6 digits."
+            errorMessage = "Code must be 6 digits."
             return
         }
         do {
             try await session.client.confirmPair(code: trimmed, label: "iphone")
             await load()
         } catch {
-            error = "Pair failed. Check code and host."
+            errorMessage = "Pair failed. Check code and host."
         }
     }
 
@@ -80,7 +79,7 @@ struct ContentView: View {
         do {
             runs = try await session.client.fetchRuns()
         } catch {
-            error = "Fetch failed. Check LAN and token."
+            errorMessage = "Fetch failed. Check LAN and token."
         }
     }
 
@@ -92,7 +91,7 @@ struct ContentView: View {
             _ = try await session.client.createRun(title: String(text.prefix(40)), prompt: text)
             await load()
         } catch {
-            error = "Send failed."
+            errorMessage = "Send failed."
         }
     }
 }
