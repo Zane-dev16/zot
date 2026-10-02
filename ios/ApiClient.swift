@@ -30,7 +30,7 @@ final class ApiClient: ObservableObject {
         let payload = try JSONSerialization.data(withJSONObject: ["code": code, "label": label, "kind": "ios"])
         let r = try req("/api/v1/pair/confirm", method: "POST", body: payload, auth: false)
         let (data, resp) = try await URLSession.shared.data(for: r)
-        guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.userAuthenticationRequired) }
+        guard [200, 201].contains((resp as? HTTPURLResponse)?.statusCode ?? 0) else { throw URLError(.userAuthenticationRequired) }
         let parsed = try decoder.decode(PairToken.self, from: data)
         token = parsed.token
         Keychain.save(parsed.token)

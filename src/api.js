@@ -210,6 +210,55 @@ function createHandler(db) {
 			return;
 		}
 
+		if (method === "POST" && path === "/api/v1/pair/confirm") {
+			if (pairLimited()) {
+				send(res, 429, { error: "rate limited" });
+				return;
+			}
+			let body = null;
+			try {
+				body = await readBody(req);
+			} catch (e) {
+				send(res, 400, { error: e.message });
+				return;
+			}
+			if (!pending) {
+				send(res, 400, { error: "no pending pairing" });
+				return;
+			}
+			try {
+				const out = auth.confirmPairing({
+					code: body && body.code,
+					expectedCode: pending.code,
+					startedAt: pending.startedAt,
+					label: pending.label,
+					kind: pending.kind,
+				});
+				db.prepare(
+					"INSERT INTO device_session(id, label, kind, token_hash, created_at, last_seen_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, NULL)",
+				).run(
+					out.session.id,
+					out.session.label,
+					out.session.kind,
+					out.session.tokenHash,
+					out.session.createdAt,
+					out.session.lastSeenAt,
+				);
+				pending = null;
+				send(res, 201, {
+					token: out.token,
+					device: mapDevice(
+						db
+							.prepare("SELECT * FROM device_session WHERE id = ?")
+							.get(out.session.id),
+					),
+				});
+			} catch (e) {
+				send(res, 400, { error: e.message });
+			}
+			return;
+		}
+
 		const session = requireAuth(req, res);
 		if (!session) return;
 
@@ -588,55 +637,6 @@ function createHandler(db) {
 				.prepare("SELECT * FROM device_session ORDER BY created_at ASC")
 				.all();
 			send(res, 200, { devices: rows.map(mapDevice) });
-			return;
-		}
-
-		if (method === "POST" && path === "/api/v1/pair/confirm") {
-			if (pairLimited()) {
-				send(res, 429, { error: "rate limited" });
-				return;
-			}
-			let body = null;
-			try {
-				body = await readBody(req);
-			} catch (e) {
-				send(res, 400, { error: e.message });
-				return;
-			}
-			if (!pending) {
-				send(res, 400, { error: "no pending pairing" });
-				return;
-			}
-			try {
-				const out = auth.confirmPairing({
-					code: body && body.code,
-					expectedCode: pending.code,
-					startedAt: pending.startedAt,
-					label: pending.label,
-					kind: pending.kind,
-				});
-				db.prepare(
-					"INSERT INTO device_session(id, label, kind, token_hash, created_at, last_seen_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, NULL)",
-				).run(
-					out.session.id,
-					out.session.label,
-					out.session.kind,
-					out.session.tokenHash,
-					out.session.createdAt,
-					out.session.lastSeenAt,
-				);
-				pending = null;
-				send(res, 201, {
-					token: out.token,
-					device: mapDevice(
-						db
-							.prepare("SELECT * FROM device_session WHERE id = ?")
-							.get(out.session.id),
-					),
-				});
-			} catch (e) {
-				send(res, 400, { error: e.message });
-			}
 			return;
 		}
 

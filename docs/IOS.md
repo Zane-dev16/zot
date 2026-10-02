@@ -9,13 +9,14 @@ Zot iOS talks to the same daemon as the browser UI. It pairs over LAN with a six
 Routes used from tmp zot arch:
 
 ```text
+POST /api/v1/pair/start
 POST /api/v1/pair/confirm
 GET /api/v1/runs
 POST /api/v1/runs
 GET /healthz
 ```
 
-Auth is a bearer token on every route except health and pairing start. Pairing is rate limited to five tries per minute. Tokens are 256 bit random hex. The server stores only hashes.
+Auth is a bearer token on every route except health plus pair start plus pair confirm. Pair start and pair confirm are public and rate limited to five tries per minute. Tokens are 256 bit random hex. The server stores only hashes.
 
 Files:
 
@@ -26,7 +27,7 @@ ios/ApiClient.swift owns HTTP calls to api v1
 ios/ContentView.swift owns the pairing screen and the chat list
 ```
 
-Pairing flow. The browser calls pair start and shows a six digit code. The phone enters the code within five minutes. The server issues a device token. The phone saves it in Keychain. Later launches load it from Keychain.
+Pairing flow. The browser calls POST pair start with its token and gets a six digit code plus expiry. The phone calls POST pair confirm with code plus label plus kind ios and no token. The server returns 201 with token plus device on success. The phone saves the token in Keychain. Later launches load it from Keychain. Later calls send it as Bearer. Codes expire after five minutes. Wrong codes return 400. Over limit returns 429. ApiClient sends pair confirm with auth false. It accepts 200 or 201.
 
 Steps:
 
