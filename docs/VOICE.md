@@ -1,6 +1,6 @@
 # Voice feed
 
-Voice turns typed test phrases into wake matches and run inputs. There is no mic source yet. There is no route yet. The caller wires the helpers below.
+Voice turns typed test phrases into wake matches and queued runs. There is no mic source yet. Type one phrase on the test device and paste it as text.
 
 ## Transcript shape
 
@@ -43,15 +43,38 @@ if (fed.hit) {
 }
 ```
 
+## Route
+
+Send typed phrases to the API route below.
+
+```sh
+curl -X POST http://127.0.0.1:8787/api/v1/voice/ingest \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"zot build the report","deviceId":"dev1"}'
+```
+
+Behavior follows this list.
+
+- Auth uses Bearer device token. Missing or bad token returns 401.
+- Rate limit allows 30 requests per minute per handler. Burst traffic returns 429.
+- Body holds text plus optional deviceId plus at plus lang. Bad input returns 400 with reason.
+- Wake miss returns 200 with hit false plus transcript. It creates no run.
+- Wake hit strips the wake word then creates a run in queued state. It returns 201 with hit true plus transcript plus run.
+- Owner uses body deviceId when present. It falls back to the auth session id when missing.
+- Runner queue picks up the queued run on its next poll. No extra queue step is needed.
+
 ## Mic stub
 
 No mic is wired. MIC_NOTE in src voice.js says the same. Type one phrase on the test device and paste it as text. Add the real mic source later behind the same transcript shape.
 
 ## Check
 
-Run the two commands below from the repo root.
+Run the commands below from the repo root.
 
 ```sh
 node --check src/voice.js
+node --check src/api.js
 node scripts/verify-voice.js
+grep -n "voice" src/api.js
 ```

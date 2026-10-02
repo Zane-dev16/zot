@@ -1,10 +1,66 @@
 "use strict";
 
 const assert = require("node:assert");
+const { EventEmitter } = require("node:events");
 const voice = require("../src/voice");
 const runs = require("../src/runs");
+const api = require("../src/api");
+const auth = require("../src/auth");
+const { openDb } = require("../src/db");
 
-function main() {
+function callApi(handler, opts) {
+	return new Promise((resolve, reject) => {
+		const req = new EventEmitter();
+		req.method = opts.method;
+		req.url = opts.path;
+		req.headers = {};
+		if (opts.token) req.headers.authorization = "Bearer " + opts.token;
+		const res = {
+			status: 0,
+			writeHead(status) {
+				this.status = status;
+			},
+			end(data) {
+				try {
+					resolve({
+						status: this.status,
+						body: data ? JSON.parse(data) : null,
+					});
+				} catch (e) {
+					reject(e);
+				}
+			},
+		};
+		let handled = false;
+		try {
+			handled = handler(req, res);
+		} catch (e) {
+			reject(e);
+			return;
+		}
+		assert.strictEqual(handled, true, "voice path is handled");
+		const payload = opts.body === undefined ? null : JSON.stringify(opts.body);
+		setImmediate(() => {
+			if (payload === null) req.emit("end");
+			else {
+				req.emit("data", Buffer.from(payload));
+				req.emit("end");
+			}
+		});
+	});
+}
+
+function seedDb() {
+	const db = openDb(":memory:");
+	const token = auth.generateToken();
+	const now = Date.now();
+	db.prepare(
+		"INSERT INTO device_session(id, label, kind, token_hash, created_at, last_seen_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, NULL)",
+	).run("dev1", "test device", "ios", auth.hashToken(token), now, now);
+	return { db, token };
+}
+
+async function main() {
 	const parsed = voice.parseVoiceTranscript("  zot start my run  ");
 	assert.strictEqual(parsed.ok, true, "plain text parses");
 	assert.strictEqual(
@@ -107,6 +163,111 @@ function main() {
 	);
 	assert.ok(voice.MIC_NOTE.toLowerCase().includes("mic"), "mic note names mic");
 	console.log("PASS mic stub names mic testing");
+
+	const seeded = seedDb();
+	const handler = api.createHandler(seeded.db);
+	const unauthed = await callApi(handler, {
+		method: "POST",
+		path: "/api/v1/voice/ingest",
+		body: { text: "zot build the report" },
+	});
+	assert.strictEqual(unauthed.status, 401, "missing token is rejected");
+	console.log("PASS voice route needs auth");
+
+	const bad = await callApi(handler, {
+		method: "POST",
+		path: "/api/v1/voice/ingest",
+		token: seeded.token,
+		body: { text: "   " },
+	});
+	assert.strictEqual(bad.status, 400, "blank voice text fails");
+	console.log("PASS voice route rejects blank text");
+
+	const countBefore = seeded.db
+		.prepare("SELECT COUNT(*) AS n FROM agent_run")
+		.get().n;
+	const missRes = await callApi(handler, {
+		method: "POST",
+		path: "/api/v1/voice/ingest",
+		token: seeded.token,
+		body: { text: "hello there" },
+	});
+	assert.strictEqual(missRes.status, 200, "wake miss returns 200");
+	assert.strictEqual(missRes.body.hit, false, "wake miss names hit false");
+	assert.strictEqual(
+		missRes.body.transcript.text,
+		"hello there",
+		"wake miss echoes transcript",
+	);
+	const countAfterMiss = seeded.db
+		.prepare("SELECT COUNT(*) AS n FROM agent_run")
+		.get().n;
+	assert.strictEqual(countAfterMiss, countBefore, "wake miss creates no run");
+	console.log("PASS voice miss returns hit false with no run");
+
+	const hitRes = await callApi(handler, {
+		method: "POST",
+		path: "/api/v1/voice/ingest",
+		token: seeded.token,
+		body: { text: "zot build the report", deviceId: "dev1" },
+	});
+	assert.strictEqual(hitRes.status, 201, "wake hit returns 201");
+	assert.strictEqual(hitRes.body.hit, true, "wake hit names hit true");
+	assert.strictEqual(
+		hitRes.body.run.state,
+		"queued",
+		"voice run returns queued state",
+	);
+	assert.strictEqual(
+		hitRes.body.run.prompt,
+		"build the report",
+		"voice run strips wake word",
+	);
+	assert.strictEqual(
+		hitRes.body.run.ownerDeviceId,
+		"dev1",
+		"voice run keeps device id",
+	);
+	const stored = seeded.db
+		.prepare("SELECT * FROM agent_run WHERE id = ?")
+		.get(hitRes.body.run.id);
+	assert.ok(stored, "voice run is stored");
+	assert.strictEqual(stored.state, "queued", "stored run is queued");
+	console.log("PASS voice hit queues run with stripped prompt");
+
+	const fallbackRes = await callApi(handler, {
+		method: "POST",
+		path: "/api/v1/voice/ingest",
+		token: seeded.token,
+		body: { text: "zot go" },
+	});
+	assert.strictEqual(fallbackRes.status, 201, "fallback hit returns 201");
+	assert.strictEqual(
+		fallbackRes.body.run.ownerDeviceId,
+		"dev1",
+		"missing device falls back to session",
+	);
+	console.log("PASS voice hit defaults owner to session");
+
+	const limited = seedDb();
+	const limitedHandler = api.createHandler(limited.db);
+	let last = null;
+	for (let i = 0; i < 35; i += 1) {
+		last = await callApi(limitedHandler, {
+			method: "POST",
+			path: "/api/v1/voice/ingest",
+			token: limited.token,
+			body: { text: "hello there" },
+		});
+	}
+	assert.strictEqual(last.status, 429, "burst over limit is rejected");
+	console.log("PASS voice route rate limits burst traffic");
+
+	seeded.db.close();
+	limited.db.close();
 }
 
-main();
+main().catch((err) => {
+	console.error(err && err.message ? err.message : String(err));
+	process.exit(1);
+});

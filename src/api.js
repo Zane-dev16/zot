@@ -6,6 +6,7 @@ const runs = require("./runs");
 const memory = require("./memory");
 const scheduler = require("./scheduler");
 const router = require("./router");
+const voice = require("./voice");
 
 function send(res, status, obj) {
 	const body = JSON.stringify(obj);
@@ -126,12 +127,32 @@ function newId() {
 function createHandler(db) {
 	let pending = null;
 	let pairAttempts = [];
+	let voiceAttempts = [];
+
+	const VOICE_WINDOW_MS = 60 * 1000;
+	const VOICE_MAX_ATTEMPTS = 30;
 
 	function pairLimited() {
 		const now = Date.now();
 		pairAttempts = pairAttempts.filter((t) => t > now - auth.PAIR_WINDOW_MS);
 		if (auth.isRateLimited(pairAttempts, now)) return true;
 		pairAttempts.push(now);
+		return false;
+	}
+
+	function voiceLimited() {
+		const now = Date.now();
+		voiceAttempts = voiceAttempts.filter((t) => t > now - VOICE_WINDOW_MS);
+		if (
+			auth.isRateLimited(
+				voiceAttempts,
+				now,
+				VOICE_MAX_ATTEMPTS,
+				VOICE_WINDOW_MS,
+			)
+		)
+			return true;
+		voiceAttempts.push(now);
 		return false;
 	}
 
@@ -180,6 +201,7 @@ function createHandler(db) {
 			/^\/api\/v1\/devices\/[^/]+$/,
 			/^\/api\/v1\/pair\/start$/,
 			/^\/api\/v1\/pair\/confirm$/,
+			/^\/api\/v1\/voice\/ingest$/,
 		];
 		if (!KNOWN.some((r) => r.test(path))) {
 			send(res, 404, { error: "not found" });
@@ -261,6 +283,62 @@ function createHandler(db) {
 
 		const session = requireAuth(req, res);
 		if (!session) return;
+
+		if (method === "POST" && path === "/api/v1/voice/ingest") {
+			if (voiceLimited()) {
+				send(res, 429, { error: "rate limited" });
+				return;
+			}
+			let body = null;
+			try {
+				body = await readBody(req);
+			} catch (e) {
+				send(res, 400, { error: e.message });
+				return;
+			}
+			const fed = voice.ingestVoiceTranscript(body || {}, {});
+			if (!fed.ok) {
+				send(res, 400, { error: fed.reason });
+				return;
+			}
+			if (!fed.hit) {
+				send(res, 200, { hit: false, transcript: fed.transcript });
+				return;
+			}
+			const ownerDeviceId = fed.runInput.ownerDeviceId || session.id;
+			const run = runs.createRun({
+				id: newId(),
+				title: fed.runInput.title || "voice run",
+				prompt: fed.runInput.prompt,
+				ownerDeviceId,
+			});
+			try {
+				db.exec("ALTER TABLE agent_run ADD COLUMN model TEXT");
+			} catch {}
+			db.prepare(
+				"INSERT INTO agent_run(id, title, prompt, state, attempt, created_at, updated_at, finished_at, last_heartbeat, owner_device_id, model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			).run(
+				run.id,
+				run.title,
+				run.prompt,
+				run.state,
+				run.attempt,
+				run.createdAt,
+				run.updatedAt,
+				run.finishedAt,
+				run.lastHeartbeat,
+				run.ownerDeviceId,
+				router.DEFAULT_MODEL,
+			);
+			send(res, 201, {
+				hit: true,
+				transcript: fed.transcript,
+				run: mapRun(
+					db.prepare("SELECT * FROM agent_run WHERE id = ?").get(run.id),
+				),
+			});
+			return;
+		}
 
 		if (method === "GET" && path === "/api/v1/runs") {
 			const rows = db
