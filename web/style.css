@@ -77,6 +77,18 @@ button {
 button:disabled {
 	opacity: 0.5;
 }
+button:focus-visible,
+input:focus-visible {
+	outline: 2px solid #2f6feb;
+	outline-offset: 1px;
+}
+.hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+}
 #log {
 	flex: 1;
 	display: flex;
@@ -88,6 +100,9 @@ article {
 	border-radius: 0.25rem;
 	padding: 0.5rem;
 }
+article[data-state="waiting_tool"] {
+	border-color: #d29922;
+}
 article h2 {
 	font-size: 1rem;
 	margin: 0 0 0.25rem;
@@ -95,6 +110,12 @@ article h2 {
 .tokens {
 	white-space: pre-wrap;
 	margin: 0;
+}
+.toolDetail {
+	margin: 0.25rem 0 0;
+	color: #d29922;
+	font-size: 0.85rem;
+	white-space: pre-wrap;
 }
 .state {
 	margin: 0.25rem 0 0;
@@ -104,6 +125,9 @@ article h2 {
 	display: flex;
 	gap: 0.5rem;
 	margin-top: 0.5rem;
+}
+.approvalRow .approve {
+	background: #1a7f37;
 }
 .approvalRow .danger {
 	background: #a33;
@@ -115,6 +139,11 @@ article h2 {
 #activityWrap h2 {
 	font-size: 1rem;
 	margin: 0 0 0.5rem;
+}
+#activityCount {
+	color: #999;
+	font-weight: normal;
+	font-size: 0.85rem;
 }
 #activityRow {
 	display: flex;
@@ -138,10 +167,20 @@ article h2 {
 	border-radius: 0.25rem;
 	padding: 0.4rem;
 }
+#activity li[data-state="waiting_tool"] {
+	border-color: #d29922;
+}
+#activity li[data-state="failed"] {
+	border-color: #f85149;
+}
 .activityRun {
 	background: #222;
 	width: 100%;
 	text-align: left;
+}
+.activityApprove {
+	margin-top: 0.4rem;
+	background: #1a7f37;
 }
 .activityEvents {
 	margin-top: 0.4rem;

@@ -11,6 +11,7 @@
 	var activityEl = document.getElementById("activity");
 	var refreshEl = document.getElementById("refreshActivity");
 	var activityErrorEl = document.getElementById("activityError");
+	var activityCountEl = document.getElementById("activityCount");
 
 	tokenEl.value = localStorage.getItem("zot.token") || "";
 
@@ -72,6 +73,10 @@
 		if (!view) return;
 		if (canModerate(view.state)) {
 			view.approvalRow.style.display = "flex";
+			var label = view.pendingTool ? "Approve " + view.pendingTool : "Approve";
+			view.approveBtn.textContent = label;
+			view.approveBtn.setAttribute("aria-label", label + " for run " + view.id);
+			view.cancelBtn.setAttribute("aria-label", "Cancel run " + view.id);
 		} else {
 			view.approvalRow.style.display = "none";
 		}
@@ -81,10 +86,13 @@
 		var view = views[id];
 		if (view) return view;
 		var el = document.createElement("article");
+		el.dataset.state = "";
 		var title = document.createElement("h2");
 		title.textContent = String(id);
 		var tokens = document.createElement("p");
 		tokens.className = "tokens";
+		var tool = document.createElement("p");
+		tool.className = "toolDetail";
 		var state = document.createElement("p");
 		state.className = "state";
 		state.textContent = "";
@@ -94,6 +102,7 @@
 		var approveBtn = document.createElement("button");
 		approveBtn.type = "button";
 		approveBtn.textContent = "Approve";
+		approveBtn.className = "approve";
 		var cancelBtn = document.createElement("button");
 		cancelBtn.type = "button";
 		cancelBtn.textContent = "Cancel";
@@ -102,6 +111,7 @@
 		row.appendChild(cancelBtn);
 		el.appendChild(title);
 		el.appendChild(tokens);
+		el.appendChild(tool);
 		el.appendChild(state);
 		el.appendChild(row);
 		logEl.appendChild(el);
@@ -114,6 +124,7 @@
 			el: el,
 			titleEl: title,
 			tokensEl: tokens,
+			toolEl: tool,
 			stateEl: state,
 			approvalRow: row,
 			approveBtn: approveBtn,
@@ -160,7 +171,7 @@
 				} else {
 					view.stateEl.textContent = action + " ok";
 				}
-				renderApproval(id);
+				syncState(view);
 			})
 			.catch((err) => {
 				view.busy = false;
@@ -170,6 +181,14 @@
 					(err && err.message) || "approval failed",
 				);
 			});
+	}
+
+	function syncState(view) {
+		view.el.dataset.state = view.state || "";
+		view.toolEl.textContent = view.pendingTool
+			? "waiting on " + view.pendingTool
+			: "";
+		renderApproval(view.id);
 	}
 
 	function onEvent(event) {
@@ -187,7 +206,7 @@
 			if (event.state) {
 				view.state = event.state;
 				view.stateEl.textContent = event.state;
-				renderApproval(view.id);
+				syncState(view);
 			}
 		} else if (event.type === "run.token") {
 			view.tokens += event.token || "";
@@ -196,18 +215,18 @@
 			view.state = event.state || view.state;
 			view.stateEl.textContent = event.state || view.state;
 			if (view.state !== "waiting_tool") view.pendingTool = null;
-			renderApproval(view.id);
+			syncState(view);
 		} else if (event.type === "run.done") {
 			view.state = event.state || "done";
 			view.pendingTool = null;
 			view.stateEl.textContent = view.state;
-			renderApproval(view.id);
+			syncState(view);
 		} else if (event.type === "tool.request") {
 			view.state = "waiting_tool";
 			view.pendingTool = event.tool || null;
 			view.stateEl.textContent =
 				"tool " + (event.tool || "") + " waiting approval";
-			renderApproval(view.id);
+			syncState(view);
 		} else if (event.type === "tool.result") {
 			view.stateEl.textContent = "tool " + (event.tool || "") + " done";
 		}
@@ -311,24 +330,59 @@
 	function renderActivityRuns(list) {
 		activityEl.textContent = "";
 		var items = (list || []).slice(0, 30);
+		if (activityCountEl) {
+			activityCountEl.textContent =
+				items.length === 0 ? "" : String(items.length) + " shown";
+		}
 		if (items.length === 0) {
 			var empty = document.createElement("li");
-			empty.textContent = "no runs";
+			empty.textContent = "no runs yet. Send a prompt above.";
 			activityEl.appendChild(empty);
 			return;
 		}
 		items.forEach((run) => {
 			var li = document.createElement("li");
+			li.dataset.state = run.state || "";
 			var btn = document.createElement("button");
 			btn.type = "button";
 			btn.className = "activityRun";
 			var when = run.updatedAt ? new Date(run.updatedAt).toLocaleString() : "";
 			btn.textContent =
-				(run.title || run.id) + " " + (run.state || "") + " " + when;
+				(run.title || run.id) + " . " + (run.state || "") + " . " + when;
+			btn.setAttribute(
+				"aria-label",
+				"Show tool events for " + (run.title || run.id),
+			);
 			btn.addEventListener("click", () => {
 				toggleActivityDetail(run.id, li);
 			});
 			li.appendChild(btn);
+			if (run.state === "waiting_tool") {
+				var go = document.createElement("button");
+				go.type = "button";
+				go.className = "activityApprove";
+				go.textContent = "Approve";
+				go.setAttribute("aria-label", "Approve run " + run.id);
+				go.addEventListener("click", (ev) => {
+					ev.stopPropagation();
+					go.disabled = true;
+					fetch("/api/v1/runs/" + encodeURIComponent(run.id) + "/approve", {
+						method: "POST",
+						headers: authHeaders(),
+					})
+						.then((res) => {
+							if (!res.ok) throw new Error("approve failed " + res.status);
+							return res.json();
+						})
+						.then(() => {
+							loadActivity();
+						})
+						.catch(() => {
+							go.disabled = false;
+						});
+				});
+				li.appendChild(go);
+			}
 			activityEl.appendChild(li);
 		});
 	}
@@ -444,9 +498,14 @@
 				authorization: "Bearer " + authToken(),
 			},
 			body: JSON.stringify({ title: prompt.slice(0, 60), prompt: prompt }),
-		}).catch(() => {
-			setStatus("post failed, stream still live", "live");
-		});
+		})
+			.then((res) => {
+				if (!res.ok) throw new Error("post failed " + res.status);
+				loadActivity();
+			})
+			.catch(() => {
+				setStatus("post failed, stream still live", "live");
+			});
 	});
 
 	if (refreshEl) {

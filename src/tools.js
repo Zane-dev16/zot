@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("crypto");
+const fs = require("node:fs");
 const path = require("path");
 const events = require("./events");
 const skills = require("./skills");
@@ -70,6 +71,103 @@ function validateArgs(tool, args) {
 
 function canLeaseTransition(from, to) {
 	return (LEASE_TRANSITIONS[from] || []).indexOf(to) !== -1;
+}
+
+function parseToolPrompt(prompt) {
+	const s = String(prompt == null ? "" : prompt);
+	if (s.indexOf("tool:") !== 0) return null;
+	const rest = s.slice(5).trim();
+	if (!rest) return null;
+	const space = rest.search(/\s/);
+	const tool = space === -1 ? rest : rest.slice(0, space);
+	const tail = space === -1 ? "" : rest.slice(space).trim();
+	if (!tool) return null;
+	if (tool === "shell") return { tool, args: { command: tail } };
+	if (tool === "read_file") return { tool, args: { path: tail } };
+	if (tool === "write_file") {
+		const i = tail.search(/\s/);
+		if (i === -1) return { tool, args: { path: tail, content: "" } };
+		return {
+			tool,
+			args: { path: tail.slice(0, i), content: tail.slice(i).trim() },
+		};
+	}
+	if (!tail) return { tool, args: {} };
+	try {
+		const parsed = JSON.parse(tail);
+		if (parsed && typeof parsed === "object") return { tool, args: parsed };
+	} catch {
+		// plain text falls through to text arg
+	}
+	return { tool, args: { text: tail } };
+}
+
+function execLocalSync(tool, args, root) {
+	const base = root || process.cwd();
+	if (tool === "shell") {
+		const { execFileSync } = require("node:child_process");
+		const out = execFileSync("sh", ["-c", args.command], {
+			timeout: TIMEOUT_DEFAULT_MS,
+			maxBuffer: 512 * 1024,
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		return String(out).slice(0, 2000);
+	}
+	if (tool === "read_file") {
+		const full = resolveInRoot(base, args.path);
+		return fs.readFileSync(full, "utf8").slice(0, 2000);
+	}
+	if (tool === "write_file") {
+		const full = resolveInRoot(base, args.path);
+		fs.mkdirSync(path.dirname(full), { recursive: true });
+		fs.writeFileSync(full, args.content, "utf8");
+		return "wrote " + args.path;
+	}
+	return null;
+}
+
+function defaultExecutor(req) {
+	const local = execLocalSync(req.tool, req.args, req.root);
+	if (local !== null) return local;
+	const hit = skills.execSkill(req.tool, req.args);
+	if (hit) return hit.text !== undefined ? hit.text : hit;
+	throw new Error("no executor");
+}
+
+function execToolSync(input) {
+	const allowlist = input.allowlist || DEFAULT_ALLOWLIST;
+	if (!isAllowed(input.tool, allowlist))
+		return { ok: false, error: "tool not allowed", result: null };
+	if (needsNetworkFlag(input.tool) && !input.allowNetwork)
+		return {
+			ok: false,
+			error: "network tools need explicit flag",
+			result: null,
+		};
+	const argError = validateArgs(input.tool, input.args);
+	if (argError) return { ok: false, error: argError, result: null };
+	if (input.tool === "read_file" || input.tool === "write_file") {
+		try {
+			resolveInRoot(input.root || process.cwd(), input.args.path);
+		} catch (err) {
+			return { ok: false, error: err.message, result: null };
+		}
+	}
+	try {
+		const result = defaultExecutor({
+			tool: input.tool,
+			args: input.args,
+			root: input.root,
+		});
+		return { ok: true, error: null, result };
+	} catch (err) {
+		return {
+			ok: false,
+			error: err && err.message ? err.message : String(err),
+			result: null,
+		};
+	}
 }
 
 function transitionLease(lease, to, now) {
@@ -228,12 +326,7 @@ async function executeTool(input) {
 		);
 	}
 	try {
-		const fallback = (req) => {
-			const hit = skills.execSkill(req.tool, req.args);
-			if (hit) return hit;
-			throw new Error("no executor");
-		};
-		const execFn = input.executor || fallback;
+		const execFn = input.executor || defaultExecutor;
 		const raw = execFn({
 			tool: input.tool,
 			args: input.args,
@@ -327,6 +420,10 @@ module.exports = {
 	needsNetworkFlag,
 	resolveInRoot,
 	validateArgs,
+	parseToolPrompt,
+	execLocalSync,
+	defaultExecutor,
+	execToolSync,
 	canLeaseTransition,
 	transitionLease,
 	acquireLease,

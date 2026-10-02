@@ -1,6 +1,6 @@
 # API
 
-Auth is Bearer token on every api route except pair start. Health and static web are public. Pair confirm currently requires auth in code. Failures return JSON error. Missing token returns 401 unauthorized.
+Auth is Bearer token on every api route except pair start. Health and static web are public. Failures return JSON error. Missing token returns 401 unauthorized. Bad run transitions return 409.
 
 Public routes in this list.
 
@@ -22,12 +22,36 @@ POST /api/v1/runs/:id/approve approves a run
 GET /api/v1/runs/:id/events lists tool events, supports since
 ```
 
+Run states in this list.
+
+```text
+queued runs on claim
+running is active
+waiting_tool needs approval
+done is terminal success
+failed is terminal failure
+cancelled is terminal cancel
+```
+
+Approve moves waiting_tool to running. It also accepts queued to running. Cancel moves queued, running, or waiting_tool to cancelled. Terminal states accept no transitions.
+
+Events query in this list.
+
+```text
+GET /api/v1/runs/:id/events returns id plus run_id plus tool plus args_hash plus result_ref plus created_at
+since filters to id greater than the given value, default 0
+limit is 200 rows in id order
+unknown run id returns 404
+```
+
 Authed memory routes in this list.
 
 ```text
 GET /api/v1/memory lists items, supports key plus q plus runId plus limit
 PUT /api/v1/memory/:key creates or updates one key, needs string value
 ```
+
+Memory query defaults to 20 rows and caps at 100 rows. A q search tries FTS first and falls back to LIKE. Results state via fts or via like.
 
 Authed job routes in this list.
 
@@ -46,16 +70,12 @@ POST /api/v1/pair/confirm issues a token, needs pending code
 DELETE /api/v1/devices/:id revokes a session
 ```
 
+Pair confirm currently requires auth in code because it sits behind the auth gate. The iOS stub calls it without auth. Pick one model before shipping pairing. Rate limits apply to pair start and pair confirm.
+
 Stream route in this list.
 
 ```text
 GET /api/v1/stream is a WebSocket upgrade, auth by token query
 ```
 
-Note on pair confirm. The iOS stub calls it without auth. The server currently enforces auth. Decide one model before shipping pairing.
-
-Approvals and activity
-
-All routes here need Bearer auth. Approve and Cancel act on one run. Activity reads tool events for one run. Retry now is a browser stream action and calls no route here.
-
-POST /api/v1/runs/:id/approve resumes a run in waiting_tool. POST /api/v1/runs/:id/cancel ends a run. GET /api/v1/runs lists runs for the Activity panel. GET /api/v1/runs/:id/events lists tool events and supports since id. Approve needs waiting_tool state. Cancel needs active state. Bad transitions return 409.
+The browser app uses token query plus since id for replay. Retry now is a browser stream action and calls no route here.

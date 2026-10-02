@@ -14,21 +14,29 @@
       </div>
     </header>
     <section id="auth">
+      <label class="hidden" for="token">Device token</label>
       <input
         id="token"
         type="password"
         placeholder="device token"
         autocomplete="off"
+        aria-label="Device token"
       />
       <button id="saveToken" type="button">Save</button>
     </section>
     <section id="log" aria-live="polite"></section>
     <form id="composer">
-      <input id="box" placeholder="type here" autocomplete="off" />
+      <label class="hidden" for="box">Prompt</label>
+      <input
+        id="box"
+        placeholder="type here"
+        autocomplete="off"
+        aria-label="Prompt"
+      />
       <button type="submit">Send</button>
     </form>
     <section id="activityWrap">
-      <h2>Activity</h2>
+      <h2>Activity <span id="activityCount" aria-live="polite"></span></h2>
       <div id="activityRow">
         <button id="refreshActivity" type="button">Refresh</button>
         <span id="activityError" aria-live="polite"></span>

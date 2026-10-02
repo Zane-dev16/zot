@@ -1,11 +1,12 @@
 "use strict";
 
 // Runner loop plus scheduler tick. Both are poll functions the daemon
-// calls on an interval. They stay synchronous except for stub exec.
+// calls on an interval. Tool exec stays synchronous via execFileSync.
 const crypto = require("node:crypto");
 const runs = require("./runs");
 const scheduler = require("./scheduler");
 const router = require("./router");
+const tools = require("./tools");
 
 const RUNNER_INTERVAL_MS = 1000;
 const SCHEDULER_INTERVAL_MS = 15000;
@@ -36,10 +37,57 @@ function insertRun(db, title, prompt, model, now) {
 	return id;
 }
 
+function resumeApprovedOnce(db, opts) {
+	const o = opts || {};
+	const now = o.now == null ? Date.now() : o.now;
+	const row = db
+		.prepare(
+			"SELECT id, prompt FROM agent_run WHERE state = 'running' AND prompt LIKE 'tool:%' ORDER BY updated_at ASC LIMIT 1",
+		)
+		.get();
+	if (!row) return null;
+	const parsed = tools.parseToolPrompt(row.prompt);
+	if (!parsed) return null;
+	const outcome = tools.execToolSync({
+		tool: parsed.tool,
+		args: parsed.args,
+		root: o.root,
+	});
+	const text = outcome.ok
+		? String(outcome.result == null ? "" : outcome.result).slice(0, 200)
+		: "error:" + String(outcome.error || "failed").slice(0, 200);
+	try {
+		db.exec(tools.LEASE_DDL);
+		db.prepare(
+			"INSERT INTO tool_event(run_id, tool, args_hash, result_ref, created_at) VALUES (?, ?, ?, ?, ?)",
+		).run(row.id, parsed.tool, tools.hashArgs(parsed.args), text, now);
+	} catch {
+		// tool_event write is best effort
+	}
+	try {
+		db.prepare(
+			"UPDATE tool_lease SET state = 'done', released_at = ? WHERE run_id = ? AND state = 'held'",
+		).run(now, row.id);
+	} catch {
+		// lease update is best effort
+	}
+	const done = outcome.ok;
+	db.prepare(
+		"UPDATE agent_run SET state = ?, updated_at = ?, finished_at = ? WHERE id = ?",
+	).run(done ? "done" : "failed", now, now, row.id);
+	if (o.publish) {
+		o.publish("tool.result", { runId: row.id, tool: parsed.tool, ok: done });
+		o.publish("run.done", { runId: row.id, state: done ? "done" : "failed" });
+	}
+	return { id: row.id, ok: done, tool: parsed.tool };
+}
+
 function pollOnce(db, opts) {
 	const o = opts || {};
 	const now = o.now == null ? Date.now() : o.now;
 	ensureModelColumn(db);
+	const resumed = resumeApprovedOnce(db, o);
+	if (resumed) return resumed;
 	const row = db
 		.prepare(
 			"SELECT id, prompt, model FROM agent_run WHERE state = 'queued' ORDER BY created_at ASC LIMIT 1",
@@ -51,8 +99,9 @@ function pollOnce(db, opts) {
 	const model = row.model || router.DEFAULT_MODEL;
 	if (o.publish) o.publish("run.state", { runId: row.id, state: "running" });
 	const prompt = String(row.prompt || "");
-	if (prompt.indexOf("tool:") === 0) {
-		const tool = prompt.slice(5).split(/\s/)[0] || "shell";
+	const parsed = tools.parseToolPrompt(prompt);
+	if (parsed) {
+		const tool = parsed.tool;
 		db.prepare(
 			"UPDATE agent_run SET state = 'waiting_tool', updated_at = ? WHERE id = ?",
 		).run(now, row.id);
@@ -60,7 +109,14 @@ function pollOnce(db, opts) {
 			db.exec(require("./tools").LEASE_DDL);
 			db.prepare(
 				"INSERT OR IGNORE INTO tool_lease(id, run_id, tool, args_hash, state, acquired_at, expires_at, released_at) VALUES (?, ?, ?, ?, 'held', ?, ?, NULL)",
-			).run(newId(), row.id, tool, "pending-approval", now, now + 60000);
+			).run(
+				newId(),
+				row.id,
+				tool,
+				tools.hashArgs(parsed.args),
+				now,
+				now + 60000,
+			);
 		} catch {
 			// lease table write is best effort here
 		}
@@ -137,6 +193,7 @@ module.exports = {
 	SCHEDULER_INTERVAL_MS,
 	ensureModelColumn,
 	insertRun,
+	resumeApprovedOnce,
 	pollOnce,
 	tickScheduler,
 };
