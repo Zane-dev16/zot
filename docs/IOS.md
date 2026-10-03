@@ -154,3 +154,25 @@ Next steps in the list below.
 
 1. Run keychain approval then device build plus install on loki.
 2. Add push and pairing end to end against the local daemon.
+
+## Device retry 2026-10-03
+
+Retry ran over ssh as measured by prior session log. That log held 165 lines as measured by prior session. The log file is absent now as measured by ls miss on Oct 3. Quoted lines below come from prior session context.
+
+Build result. Bundle target was com.zanishlabs.zot as measured by build settings in the log. Team setting was 36V92GAJBT as measured by build settings in the log. No interactive prompt appeared as measured by log completion without stop. Build status was succeeded as measured by BUILD SUCCEEDED line in the log. Signing was absent as measured by code object is not signed at all in the log. Keychain stayed locked as measured by User interaction is not allowed in the log. Identity still shows only Y8FVTH86T8 as measured by find-identity output in the log. Expected identity 36V92GAJBT is absent as measured by find-identity output in the log. Profile is still wildcard only as measured by XC Wildcard entry in the log.
+
+```text
+** BUILD SUCCEEDED **
+BUILD_EXIT=0
+/Users/irellzane/Library/Developer/Xcode/DerivedData/Zot-fvzpcarseauuyubspklafrcskwfl/Build/Products/Debug-iphoneos/Zot.app: code object is not signed at all
+CODESIGN_VERIFY_EXIT=1
+```
+
+Install result. Device target was 5A3DC1B6 paired as measured by devicectl list in the log. Install status was failed as measured by INSTALL EXIT 1 in the log. Cause was missing signature as measured by No code signature found in the log.
+
+```text
+ERROR: Failed to install the app on the device. (com.apple.dt.CoreDeviceError error 3002 (0xBBA))
+INSTALL_EXIT=1
+```
+
+Impact. App is not on the phone as measured by install exit 1 in the log. Next step is console unlock retry as inferred from unchanged keychain and profile state.
