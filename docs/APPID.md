@@ -24,4 +24,19 @@
 8. Open ~/zot-ios in Xcode. Confirm team and bundle. Clean build to device 5A3DC1B6. Confirm install exits 0. Under 2 minutes.
 9. Decode the new profile. Confirm aps-environment is present. Under 1 minute.
 
-**Verify.** Device build installs with exit 0. Profile decode shows aps-environment. Simulator install already shows exit 0.
+**Portal land 2026-10-03.**
+
+- App ID com.zanishlabs.zot explicit persists. Measured via prior portal log.
+- No downloaded profile exists. Measured via empty find result.
+- Portal flow stopped at Select an App ID. Measured via prior portal log.
+- Device mapping to 5A3DC1B6 persists. Measured via prior portal log.
+- Install did not run. Measured via ssh timeout.
+- Ssh target showed relay mad with zero receive. Measured via tailscale output.
+- Ssh probe showed connection timed out. Measured via verbose log.
+- Open plus decode plus build plus install were skipped. Measured via task gate.
+- Full run lives at /tmp/zot-portal-install.log. Measured via write output.
+- Portal prompt text was none. All pages loaded logged in as Irell Zane. Measured via portal log.
+- Ssh prompt text was connection timed out on port 22. Measured via install log.
+- Installed status is no. Measured via missing build output.
+
+**Verify.** Build output was none. Install output was none. Aps environment line was none. Measured via missing profile file.

@@ -8,5 +8,7 @@
 - Build to device 5A3DC1B6 and confirm install exit 0 plus aps-environment present. Owner operator. Date 2026-10-03.
 - Record one wake sample on device in quiet room. Owner operator. Date 2026-10-03.
 - Replay sample and note trigger result. Owner operator. Date 2026-10-03.
+- Portal stopped at Select an App ID with no auth prompt. Pages loaded logged in. Owner operator. Date 2026-10-03.
+- Ssh to loki timed out on port 22 via relay mad with zero receive. Install skipped. Owner operator. Date 2026-10-03.
 
 Add items here when only a human can unblock. Keep one line per item with owner and date.
