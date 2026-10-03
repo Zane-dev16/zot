@@ -8,6 +8,7 @@ const skills = require("./skills");
 
 const DEFAULT_ALLOWLIST = ["read_file", "write_file", "shell"];
 const NETWORK_TOOLS = ["fetch"];
+const DENY_PREFIX = "deny:";
 const TIMEOUT_DEFAULT_MS = 10000;
 const LEASE_TTL_MS = 60000;
 
@@ -40,6 +41,18 @@ function isAllowed(tool, allowlist) {
 
 function needsNetworkFlag(tool) {
 	return NETWORK_TOOLS.indexOf(tool) !== -1;
+}
+
+function denyResult(tool, reason) {
+	return { ok: false, error: reason, result: null, denied: true, tool };
+}
+
+function isDenied(outcome) {
+	return !!outcome && outcome.denied === true;
+}
+
+function denyRef(outcome) {
+	return DENY_PREFIX + String(outcome.error || "denied").slice(0, 200);
 }
 
 function resolveInRoot(root, target) {
@@ -138,13 +151,9 @@ function defaultExecutor(req) {
 function execToolSync(input) {
 	const allowlist = input.allowlist || DEFAULT_ALLOWLIST;
 	if (!isAllowed(input.tool, allowlist))
-		return { ok: false, error: "tool not allowed", result: null };
+		return denyResult(input.tool, "tool not allowed");
 	if (needsNetworkFlag(input.tool) && !input.allowNetwork)
-		return {
-			ok: false,
-			error: "network tools need explicit flag",
-			result: null,
-		};
+		return denyResult(input.tool, "network tools need explicit flag");
 	const argError = validateArgs(input.tool, input.args);
 	if (argError) return { ok: false, error: argError, result: null };
 	if (input.tool === "read_file" || input.tool === "write_file") {
@@ -281,12 +290,15 @@ async function executeTool(input) {
 	outcome.lease = leaseStep.lease;
 
 	if (!isAllowed(input.tool, allowlist)) {
-		outcome.error = "tool not allowed";
-		return outcome;
+		return Object.assign(denyResult(input.tool, "tool not allowed"), {
+			lease: outcome.lease,
+		});
 	}
 	if (needsNetworkFlag(input.tool) && !input.allowNetwork) {
-		outcome.error = "network tools need explicit flag";
-		return outcome;
+		return Object.assign(
+			denyResult(input.tool, "network tools need explicit flag"),
+			{ lease: outcome.lease },
+		);
 	}
 	const argError = validateArgs(input.tool, input.args);
 	if (argError) {
@@ -412,12 +424,16 @@ const LEASE_DDL = [
 module.exports = {
 	DEFAULT_ALLOWLIST,
 	NETWORK_TOOLS,
+	DENY_PREFIX,
 	TIMEOUT_DEFAULT_MS,
 	LEASE_TTL_MS,
 	LEASE_DDL,
 	hashArgs,
 	isAllowed,
 	needsNetworkFlag,
+	denyResult,
+	isDenied,
+	denyRef,
 	resolveInRoot,
 	validateArgs,
 	parseToolPrompt,
