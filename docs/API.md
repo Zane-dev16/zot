@@ -56,10 +56,12 @@ Memory query defaults to 20 rows and caps at 100 rows. A q search tries FTS firs
 Authed job routes in this list.
 
 ```text
-GET /api/v1/jobs lists jobs by name
-POST /api/v1/jobs creates a job, needs name plus cron plus prompt
-PATCH /api/v1/jobs/:id updates name plus cron plus prompt plus enabled plus nextRunAt
+GET /api/v1/jobs lists jobs by name with runCount plus recentRuns
+POST /api/v1/jobs creates a job, needs name plus cron plus prompt, bad cron returns 400
+PATCH /api/v1/jobs/:id updates name plus cron plus prompt plus enabled plus nextRunAt, bad cron returns 400, cron change recomputes nextRunAt
 DELETE /api/v1/jobs/:id deletes a job
+
+Each scheduler fire writes one scheduler_run row with job plus run plus fired time. GET jobs returns the count plus the newest five runs.
 ```
 
 Authed device routes in this list.

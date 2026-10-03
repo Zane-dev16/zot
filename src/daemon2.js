@@ -97,7 +97,7 @@ function createServer(db, bootId, startedAt) {
 }
 
 function boot(opts = {}) {
-	const port = opts.port || PORT;
+	const port = opts.port ?? PORT;
 	const db = openDb(opts.dbPath);
 	const bootId = newId();
 	const startedAt = Date.now();

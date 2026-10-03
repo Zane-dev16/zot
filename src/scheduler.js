@@ -175,6 +175,56 @@ function computeNextRunAtCron(cronExpr) {
 	};
 }
 
+const SCHEDULER_RUN_DDL = [
+	"CREATE TABLE IF NOT EXISTS scheduler_run(",
+	"  job_id TEXT NOT NULL REFERENCES scheduler_job(id) ON DELETE CASCADE,",
+	"  run_id TEXT NOT NULL REFERENCES agent_run(id) ON DELETE CASCADE,",
+	"  fired_at INTEGER NOT NULL,",
+	"  cron TEXT NOT NULL",
+	");",
+	"CREATE INDEX IF NOT EXISTS idx_scheduler_run_job ON scheduler_run(job_id, fired_at);",
+].join("\n");
+
+function ensureSchedulerRunTable(db) {
+	try {
+		db.exec(SCHEDULER_RUN_DDL);
+	} catch {}
+}
+
+function recordJobRun(db, jobId, runId, cron, nowMs) {
+	const now = nowMs === undefined ? Date.now() : nowMs;
+	ensureSchedulerRunTable(db);
+	db.prepare(
+		"INSERT INTO scheduler_run(job_id, run_id, fired_at, cron) VALUES (?, ?, ?, ?)",
+	).run(jobId, runId, now, cron);
+}
+
+function jobRunHistory(db, jobId, limit) {
+	const n = Number.isFinite(limit) ? Math.min(Math.max(limit | 0, 1), 50) : 10;
+	ensureSchedulerRunTable(db);
+	try {
+		return db
+			.prepare(
+				"SELECT job_id, run_id, fired_at, cron FROM scheduler_run WHERE job_id = ? ORDER BY fired_at DESC LIMIT ?",
+			)
+			.all(jobId, n);
+	} catch {
+		return [];
+	}
+}
+
+function jobRunCount(db, jobId) {
+	ensureSchedulerRunTable(db);
+	try {
+		const row = db
+			.prepare("SELECT COUNT(*) AS n FROM scheduler_run WHERE job_id = ?")
+			.get(jobId);
+		return row ? row.n : 0;
+	} catch {
+		return 0;
+	}
+}
+
 module.exports = {
 	isJobDue,
 	claimJob,
@@ -185,4 +235,9 @@ module.exports = {
 	isCronMatch,
 	nextCronRunAt,
 	computeNextRunAtCron,
+	SCHEDULER_RUN_DDL,
+	ensureSchedulerRunTable,
+	recordJobRun,
+	jobRunHistory,
+	jobRunCount,
 };

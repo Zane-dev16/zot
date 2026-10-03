@@ -78,3 +78,10 @@ CREATE TRIGGER IF NOT EXISTS memory_item_au AFTER UPDATE ON memory_item BEGIN
   INSERT INTO memory_fts(rowid, key, value) VALUES (new.rowid, new.key, new.value);
 END;
 INSERT INTO memory_fts(rowid, key, value) SELECT rowid, key, value FROM memory_item WHERE rowid NOT IN (SELECT rowid FROM memory_fts);
+CREATE TABLE IF NOT EXISTS scheduler_run(
+  job_id TEXT NOT NULL REFERENCES scheduler_job(id) ON DELETE CASCADE,
+  run_id TEXT NOT NULL REFERENCES agent_run(id) ON DELETE CASCADE,
+  fired_at INTEGER NOT NULL,
+  cron TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_scheduler_run_job ON scheduler_run(job_id, fired_at);

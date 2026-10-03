@@ -86,7 +86,8 @@ function toRunShape(row) {
 	};
 }
 
-function mapJob(r) {
+function mapJob(r, extra) {
+	const e = extra || {};
 	return {
 		id: r.id,
 		name: r.name,
@@ -95,7 +96,24 @@ function mapJob(r) {
 		enabled: r.enabled === 1 || r.enabled === true,
 		nextRunAt: r.next_run_at,
 		lastRunId: r.last_run_id === undefined ? null : r.last_run_id,
+		runCount: typeof e.runCount === "number" ? e.runCount : 0,
+		recentRuns: Array.isArray(e.recentRuns) ? e.recentRuns : [],
 	};
+}
+
+function jobExtra(db, id) {
+	try {
+		return {
+			runCount: scheduler.jobRunCount(db, id),
+			recentRuns: scheduler.jobRunHistory(db, id, 5).map((h) => ({
+				runId: h.run_id,
+				firedAt: h.fired_at,
+				cron: h.cron,
+			})),
+		};
+	} catch {
+		return { runCount: 0, recentRuns: [] };
+	}
 }
 
 function mapDevice(r) {
@@ -586,10 +604,13 @@ function createHandler(db) {
 		}
 
 		if (method === "GET" && path === "/api/v1/jobs") {
+			scheduler.ensureSchedulerRunTable(db);
 			const rows = db
 				.prepare("SELECT * FROM scheduler_job ORDER BY name ASC")
 				.all();
-			send(res, 200, { jobs: rows.map(mapJob) });
+			send(res, 200, {
+				jobs: rows.map((r) => mapJob(r, jobExtra(db, r.id))),
+			});
 			return;
 		}
 
@@ -612,11 +633,13 @@ function createHandler(db) {
 			}
 			const id = newId();
 			const now = Date.now();
-			let nextRunAt = now;
+			let nextRunAt;
 			try {
+				scheduler.parseCron(body.cron);
 				nextRunAt = scheduler.nextCronRunAt(body.cron, now);
 			} catch {
-				// bad cron still stores the job, runs never fire
+				send(res, 400, { error: "bad cron expression" });
+				return;
 			}
 			db.prepare(
 				"INSERT INTO scheduler_job(id, name, cron, prompt, enabled, next_run_at, last_run_id) VALUES (?, ?, ?, ?, ?, ?, NULL)",
@@ -631,6 +654,7 @@ function createHandler(db) {
 			send(res, 201, {
 				job: mapJob(
 					db.prepare("SELECT * FROM scheduler_job WHERE id = ?").get(id),
+					jobExtra(db, id),
 				),
 			});
 			return;
@@ -674,8 +698,18 @@ function createHandler(db) {
 					send(res, 400, { error: "cron must be a nonempty string" });
 					return;
 				}
+				try {
+					scheduler.parseCron(patch.cron);
+				} catch {
+					send(res, 400, { error: "bad cron expression" });
+					return;
+				}
 				fields.push("cron = ?");
 				vals.push(patch.cron);
+				if (patch.nextRunAt === undefined) {
+					fields.push("next_run_at = ?");
+					vals.push(scheduler.nextCronRunAt(patch.cron, Date.now()));
+				}
 			}
 			if (patch.prompt !== undefined) {
 				if (!nonEmpty(patch.prompt)) {
@@ -705,6 +739,7 @@ function createHandler(db) {
 			send(res, 200, {
 				job: mapJob(
 					db.prepare("SELECT * FROM scheduler_job WHERE id = ?").get(id),
+					jobExtra(db, id),
 				),
 			});
 			return;

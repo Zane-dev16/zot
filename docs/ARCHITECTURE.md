@@ -13,4 +13,6 @@ Three surfaces share one domain.
 `web/index.html` owns the chat shell. `web/app.js` owns post plus render plus reconnect. `web/style.css` owns chat styling.
 `ios` owns pairing plus runs list plus runs create over the same api v1 routes.
 
-Next. Wire stream into daemon2. Decide if pair confirm stays authed.
+`src/daemon2.js` also attaches `src/stream.js` and ticks `runner.tickScheduler` every 15 seconds. `runner.tickScheduler` routes due jobs through `scheduler.tickJobs` and records each fire in `scheduler_run`.
+
+Next. Decide if pair confirm stays authed.

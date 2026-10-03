@@ -53,9 +53,10 @@ function resumeApprovedOnce(db, opts) {
 		args: parsed.args,
 		root: o.root,
 	});
-	const text = outcome.ok
-		? String(outcome.result == null ? "" : outcome.result).slice(0, 200)
-		: "error:" + String(outcome.error || "failed").slice(0, 200);
+	let text = "error:" + String(outcome.error || "failed").slice(0, 200);
+	if (outcome.ok)
+		text = String(outcome.result == null ? "" : outcome.result).slice(0, 200);
+	if (!outcome.ok && tools.isDenied(outcome)) text = tools.denyRef(outcome);
 	try {
 		db.exec(tools.LEASE_DDL);
 		db.prepare(
@@ -145,31 +146,44 @@ function tickScheduler(db, opts) {
 	const o = opts || {};
 	const now = o.now == null ? Date.now() : o.now;
 	ensureModelColumn(db);
+	scheduler.ensureSchedulerRunTable(db);
 	let jobs;
 	try {
 		jobs = db.prepare("SELECT * FROM scheduler_job WHERE enabled = 1").all();
 	} catch {
 		return [];
 	}
-	const shaped = jobs.map((j) => ({
-		id: j.id,
-		nextRunAt: j.next_run_at,
-		enabled: j.enabled === 1,
-		cron: j.cron,
-	}));
-	const compute = scheduler.computeNextRunAtCron();
-	const due = shaped.filter((j) => scheduler.isJobDue(j, now));
-	const created = [];
-	for (const job of due) {
-		let next;
+	const shaped = [];
+	for (const j of jobs) {
+		const item = {
+			id: j.id,
+			nextRunAt: j.next_run_at,
+			enabled: j.enabled === 1,
+			cron: j.cron,
+		};
 		try {
-			next = scheduler.nextCronRunAt(job.cron, now);
+			scheduler.parseCron(item.cron);
 		} catch {
 			continue;
 		}
+		shaped.push(item);
+	}
+	let claimed = [];
+	try {
+		claimed = scheduler.tickJobs(
+			shaped,
+			now,
+			scheduler.computeNextRunAtCron(),
+		).claimed;
+	} catch {
+		return [];
+	}
+	const created = [];
+	for (const job of claimed) {
 		const row = db
-			.prepare("SELECT prompt, name FROM scheduler_job WHERE id = ?")
+			.prepare("SELECT prompt, name, cron FROM scheduler_job WHERE id = ?")
 			.get(job.id);
+		if (!row) continue;
 		const id = insertRun(
 			db,
 			row ? row.name : job.id,
@@ -179,12 +193,14 @@ function tickScheduler(db, opts) {
 		);
 		db.prepare(
 			"UPDATE scheduler_job SET next_run_at = ?, last_run_id = ? WHERE id = ?",
-		).run(next, id, job.id);
+		).run(job.nextRunAt, id, job.id);
+		try {
+			scheduler.recordJobRun(db, job.id, id, row.cron, now);
+		} catch {}
 		if (o.publish)
 			o.publish("run.created", { runId: id, title: row ? row.name : job.id });
 		created.push(id);
 	}
-	void compute;
 	return created;
 }
 
