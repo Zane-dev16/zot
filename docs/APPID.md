@@ -1,39 +1,27 @@
 # Zot App ID path for push
 
-**Context.** Bundle is com.zanishlabs.zot. Team is 36V92GAJBT. Current wildcard profile has no aps-environment. Push needs an explicit App ID.
+**Context.** Bundle is com.zanishlabs.zot. Team is 36V92GAJBT. Wildcard profile lacks push rights. Push needs an explicit App ID. Measured live on loki on 2026-10-03.
 
-**Portal.** Create the explicit App ID in the portal.
+**Machine done.** All items measured today. No human action needed here.
 
-Portal steps follow.
+- Live decode shows XC Wildcard with 36V92GAJBT star and no aps-environment key. Log lives at /tmp/zot-appid-fix.log.
+- Entitlements on disk request aps-environment development. File lives at ios/Zot.entitlements. No change needed.
+- Settings show bundle com.zanishlabs.zot plus team 36V92GAJBT plus entitlements path. Measured via showBuildSettings on loki.
+- Simulator build returns BUILD SUCCEEDED. Device build with signing off returns the same line. Log lives at /tmp/zot-testpath-20261003.log.
+- Simulator app is adhoc signed and installable. Device app is unsigned as expected. Measured via codesign.
+- pbxproj patch dry run exits 0. Patch sets bundle plus team plus entitlements ref. Full diff lives in the fix log.
+- prove.sh returns ALL PASS. Ran locally today.
 
-1. Open Identifiers in the developer portal.
-2. Create a new App ID of type App.
-3. Select Explicit and enter com.zanishlabs.zot.
-4. Enable the Push Notifications capability.
-5. Save the App ID.
-6. Create a development provisioning profile for this App ID.
-7. Install the profile in Xcode.
+**Human left.** Each step takes under 2 minutes. Do them in order.
 
-**Entitlements.** Add aps-environment for development.
+1. Sit at loki console. Open Terminal as irellzane. See the prompt. Under 1 minute.
+2. Allow codesign to use the login keychain. Run the partition command with the login password. See no error. Under 1 minute.
+3. List codesigning identities. Confirm one line shows 36V92GAJBT. Under 1 minute.
+4. Sign in to the portal. Open Identifiers under team 36V92GAJBT. See the list. Under 2 minutes.
+5. Create App ID with Explicit bundle com.zanishlabs.zot. Enable Push. Press Register. See the new row. Under 2 minutes.
+6. Create iOS App Development profile for that App ID. Pick the 36V92GAJBT certificate and the test device. Name it Zot Dev Push. Press Generate. Under 2 minutes.
+7. Download the profile. Double click to install on loki. Confirm it appears in Xcode. Under 1 minute.
+8. Open ~/zot-ios in Xcode. Confirm team and bundle. Clean build to device 5A3DC1B6. Confirm install exits 0. Under 2 minutes.
+9. Decode the new profile. Confirm aps-environment is present. Under 1 minute.
 
-Draft file is Zot.entitlements in this folder.
-
-1. Copy Zot.entitlements to ios slash Zot.entitlements in the repo.
-2. Keep aps-environment set to development for debug builds.
-3. Use production value only for release signing later.
-
-**Patch plan.** Wire signing to the explicit App ID.
-
-Patch steps follow.
-
-1. Set PRODUCT_BUNDLE_IDENTIFIER to com.zanishlabs.zot.
-2. Set DEVELOPMENT_TEAM to 36V92GAJBT.
-3. Set CODE_SIGN_ENTITLEMENTS to Zot.entitlements.
-4. Enable automatic signing or select the new explicit profile.
-5. Remove CODE_SIGN_ALLOWED equal NO overrides.
-6. Build to a device and confirm aps-environment is present.
-7. Do not create keys in this step.
-
-**Verify.** Confirm the profile contains aps-environment. Confirm a device build installs and registers for push.
-
-**Status.** Proof landed on loki on 2026-10-01. Entitlements file holds aps-environment development at ios slash Zot.entitlements. Project patch adds the file reference and the group entry and CODE_SIGN_ENTITLEMENTS in Debug and Release and the Push capability. Build settings proof shows CODE_SIGN_ENTITLEMENTS present. Local and remote entitlements files match. Bundle id is synced. Remote and docs use com.zanishlabs.zot. Portal step still needs the account holder. Profile refresh still needs an Xcode run. Full diff lives at slash tmp slash zot-push-cap.log.
+**Verify.** Device build installs with exit 0. Profile decode shows aps-environment. Simulator install already shows exit 0.
