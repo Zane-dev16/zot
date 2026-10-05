@@ -53,3 +53,15 @@
 - Full run lives at tmp zot profile install log. Measured via local write.
 - Next prompt is Apple signin for profiles add. Exact text is Sign In Apple plus Sign in to your Apple Account.
 - prove.sh returns ALL PASS locally. Ran on 2026-10-05.
+
+**Install only 2026-10-05.**
+
+- OPEN exit is 0 measured via tmp zot install only log.
+- Aps environment is development measured via profile decode in same log.
+- BUILD exit is 0 with BUILD SUCCEEDED measured via same log.
+- Codesign display exit is 1 with code object is not signed at all measured via same log.
+- Codesign verify exit is 1 with same text measured via same log.
+- INSTALL exit is 1 with integrity could not be verified plus ApplicationVerificationFailed measured via devicectl output in same log.
+- Installed status is no measured via INSTALL exit 1 in same log.
+- Full log lives at tmp zot install only log measured via local file copy.
+- prove.sh returns ALL PASS locally. Ran on 2026-10-05.
