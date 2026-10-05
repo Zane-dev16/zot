@@ -350,3 +350,49 @@ Evidence follows per /tmp/zot-phone-chat.log.
 ```
 
 Installed is no. Failing gate is device offline. Next step is unlock iPhone and ensure WiFi or cable link. Then rerun the logged install command.
+
+## Online install 2026-10-05
+
+Installed is yes. Measured via INSTALL_EXIT 0 in log. Launched is yes. Measured via LAUNCH_EXIT 0 in log. Screenshot is no. Measured via missing tool in log. Device was available paired. Measured via live devicectl in log. Log lives at tmp zot online install log locally and on loki. prove.sh returns ALL PASS locally. Ran on 2026-10-05.
+
+**Evidence.** Log saved at tmp zot online install log on loki and locally.
+
+LIST lines from the log.
+
+```
+Irells iPhone Irells-iPhone.coredevice.local 5A3DC1B6-4993-5CD6-A696-DD53903DCB89 available (paired) iPhone 16 (iPhone17,3)
+```
+
+INSTALL lines from the log.
+
+```
+App installed:
+bundleID com.zanishlabs.zot
+installationURL file:///private/var/containers/Bundle/Application/4968213E-0C6E-46D8-B5EC-72804656D5BD/Zot.app/
+INSTALL_EXIT:0
+```
+
+LAUNCH lines from the log.
+
+```
+Launched application with com.zanishlabs.zot bundle identifier.
+LAUNCH_EXIT:0
+```
+
+**Details.** First attempt failed with wrong flag order. Second attempt used correct syntax and both steps exited 0. Screenshot was skipped. devicectl has no screenshot subcommand and neither idevicescreenshot nor cfgutil exists on loki. Pairing screen is live on the phone now for visual check.
+
+**Fallback.** Device install already passed in the prior attempt. Live device check shows available paired. Simulator run was extra proof on an already booted device. Install exited 0. Launch exited 0 with PID 83738. Prune kept the latest Zot DerivedData dir. Prune removed one old Zot build dir. Prune removed eight stale logs from Oct 2 and Oct 3. Log lives at tmp zot fallback log on loki and locally.
+
+Fallback lines from the log.
+
+```
+--- SIM INSTALL ---
+SIM INSTALL EXIT:0
+--- SIM LAUNCH ---
+com.zanishlabs.zot: 83738
+SIM LAUNCH EXIT:0
+```
+
+**Impact.** App owner gets runnable proof on device plus ZotTest. Next engineer inherits one Zot DerivedData dir plus only current logs.
+
+Installed is yes. Failing gate is none for install. Next step is visual check on phone. Then add push and pairing end to end.
