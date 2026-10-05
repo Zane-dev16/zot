@@ -176,3 +176,7 @@ INSTALL_EXIT=1
 ```
 
 Impact. App is not on the phone as measured by install exit 1 in the log. Next step is console unlock retry as inferred from unchanged keychain and profile state.
+
+## Profile install 2026-10-05
+
+Install status is no. Measured via missing profile file. BUILD line is none. No build ran without a downloaded profile. INSTALL line is none. No install ran to 5A3DC1B6 without a downloaded profile. Aps environment line is none. Existing wildcard profile has no aps environment entry. Device 5A3DC1B6 is available paired. Measured via live devicectl. Downloads on loki hold no mobileprovision file. Measured via live ssh find. Local tmp holds no mobileprovision file. Measured via local find. Full run lives at tmp zot profile install log. Measured via local write. Next prompt is Apple signin for profiles add. Exact text is Sign In Apple plus Sign in to your Apple Account. prove.sh returns ALL PASS locally. Ran on 2026-10-05.

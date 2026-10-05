@@ -10,5 +10,8 @@
 - Replay sample and note trigger result. Owner operator. Date 2026-10-03.
 - Portal stopped at Select an App ID with no auth prompt. Pages loaded logged in. Owner operator. Date 2026-10-03.
 - Ssh to loki timed out on port 22 via relay mad with zero receive. Install skipped. Owner operator. Date 2026-10-03.
+- Sign in with Apple ID on loki for profiles add then create Zot Dev Push. Owner operator. Date 2026-10-05.
+- Download Zot Dev Push then rerun open plus decode plus build plus install to 5A3DC1B6. Owner operator. Date 2026-10-05.
+- Profile install on 2026-10-05 is no with BUILD none plus INSTALL none plus aps environment none. Owner operator. Date 2026-10-05.
 
 Add items here when only a human can unblock. Keep one line per item with owner and date.

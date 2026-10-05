@@ -40,3 +40,16 @@
 - Installed status is no. Measured via missing build output.
 
 **Verify.** Build output was none. Install output was none. Aps environment line was none. Measured via missing profile file.
+
+**Profile install 2026-10-05.**
+
+- Install status is no. Measured via missing profile file in tmp and Downloads.
+- BUILD line is none. No build ran without a downloaded profile.
+- INSTALL line is none. No install ran to 5A3DC1B6 without a downloaded profile.
+- Aps environment line is none. Existing wildcard profile has no aps environment entry.
+- Downloads on loki hold no mobileprovision file. Measured via live ssh find.
+- Local tmp holds no mobileprovision file. Measured via local find.
+- Device 5A3DC1B6 is available paired. Measured via live devicectl.
+- Full run lives at tmp zot profile install log. Measured via local write.
+- Next prompt is Apple signin for profiles add. Exact text is Sign In Apple plus Sign in to your Apple Account.
+- prove.sh returns ALL PASS locally. Ran on 2026-10-05.
