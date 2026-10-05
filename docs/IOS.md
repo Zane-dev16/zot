@@ -285,3 +285,22 @@ ApplicationVerificationFailed
 ```
 
 Installed is no. Device rejected the unsigned bundle. Signature remains the blocker. Next step is one keychain approval on loki console. Then rerun device build plus install to 5A3DC1B6. prove.sh returns ALL PASS locally. Ran on 2026-10-05.
+
+## Console signed install 2026-10-05
+
+Console signed install ran with no build and no browser. Fresh app is /Users/irellzane/Library/Developer/Xcode/DerivedData/Zot-fvzpcarseauuyubspklafrcskwfl/Build/Products/Debug-iphoneos/Zot.app. Codesign verify passed with exit 0. Display showed TeamIdentifier 36V92GAJBT. Display showed Signed Time 5 Oct 2026. Embedded profile is iOS Team Provisioning Profile. Embedded profile differs from Zot Dev Push file in Profiles. Device 5A3DC1B6 stayed unavailable across four polls. Three identifier forms were tried with the same result. Install failed with CoreDeviceError 1011 unable to locate device. Launch check failed the same way because install never succeeded. Full log lives at /tmp/zot-install-signed.log locally and on loki. Installed is no. Failing gate is device offline. Next step is unlock iPhone and ensure WiFi or cable link. Then rerun the logged install command. prove.sh returns ALL PASS locally. Ran on 2026-10-05.
+
+Evidence pasted from the log.
+
+```text
+VERIFY codesign verify deep strict
+/Users/irellzane/Library/Developer/Xcode/DerivedData/Zot-fvzpcarseauuyubspklafrcskwfl/Build/Products/Debug-iphoneos/Zot.app: valid on disk
+/Users/irellzane/Library/Developer/Xcode/DerivedData/Zot-fvzpcarseauuyubspklafrcskwfl/Build/Products/Debug-iphoneos/Zot.app: satisfies its Designated Requirement
+VERIFY exit=0
+INSTALL devicectl device install app
+ERROR: CoreDeviceService was unable to locate a device matching the requested device identifier. (DeviceIdentifier: ecid_414108770566172) (com.apple.dt.CoreDeviceError error 1011 (0x3F3))
+INSTALL exit=1
+LAUNCH devicectl device process launch
+ERROR: CoreDeviceService was unable to locate a device matching the requested device identifier. (DeviceIdentifier: ecid_414108770566172) (com.apple.dt.CoreDeviceError error 1011 (0x3F3))
+LAUNCH exit=1
+```

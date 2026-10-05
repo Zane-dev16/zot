@@ -10,5 +10,6 @@
 - Replay sample and note trigger result. Owner operator. Date 2026-10-03.
 - Portal stopped at Select an App ID with no auth prompt. Pages loaded logged in. Owner operator. Date 2026-10-03.
 - Ssh to loki timed out on port 22 via relay mad with zero receive. Install skipped. Owner operator. Date 2026-10-03.
+- Unlock iPhone and ensure WiFi or cable link then rerun logged install to 5A3DC1B6. Install failed with CoreDeviceError 1011 unable to locate device. Owner operator. Date 2026-10-05.
 
 Add items here when only a human can unblock. Keep one line per item with owner and date.
