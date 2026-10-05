@@ -232,3 +232,17 @@ EXIT_XCTEST_FIND=0
 ```
 
 Build 1 fails with errSecInternalComponent. Build 2 fails the same way. Build 3 fails the same way. Full rerun fails the same way. Codesign text says not signed at all. Embedded file was missing. Install attempt 4 used wrong syntax. Inner installs failed with 0xe800801c. No xctest files were found. Installed is no. Failing gate is CodeSign errSecInternalComponent. Next step is one keychain approval on loki console. Then rerun device build plus install to 5A3DC1B6.
+
+## Team flip 2026-10-05
+
+Team flipped to Y8FVTH86T8 then back to 36V92GAJBT on loki only. Project on loki ends set to team 36V92GAJBT with signing enabled. Cert OU is 36V92GAJBT for all 3 dev certs per openssl output in log. Y8 device build failed with no account for that team per xcodebuild output in log. Team 36 device build resolved a fresh team profile for com.zanishlabs.zot per xcodebuild output in log. Device signing failed with errSecInternalComponent per codesign output in log. Simulator build passed per SIM BUILD EXIT 0 in log. Install failed on signature verification per devicectl output in log. Device tester gets no new install. Next engineer inherits project set to team 36V92GAJBT with signing enabled on loki only. Evidence follows.
+
+```text
+TEAM EXIT 0
+BUILD EXIT 65 for Y8 device
+BUILD EXIT 65 for 36 device
+SIM BUILD EXIT 0
+INSTALL EXIT 1 for true device install
+```
+
+Log is at /tmp/zot-use-exists.log locally and on loki. Installed is no. Gate is device codesign errSecInternalComponent with install verification failure.
