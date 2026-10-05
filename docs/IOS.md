@@ -246,3 +246,42 @@ INSTALL EXIT 1 for true device install
 ```
 
 Log is at /tmp/zot-use-exists.log locally and on loki. Installed is no. Gate is device codesign errSecInternalComponent with install verification failure.
+
+## Retry unlocked 2026-10-05
+
+Ran on loki over ssh. Copied profile to the UUID path. Ran xcodebuild with Manual style and the full fingerprint. Used specifier Zot Dev Push. App emerged unsigned. Codesign failed with errSecInternalComponent. Manual codesign failed the same way. Keychain blocks ssh sessions here. No password was attempted.
+
+Path is `/tmp/zot-retry-unlocked.log`.
+
+Exits pasted from that log.
+
+```text
+BUILD_EXIT=65
+CODESIGN_EXIT=1
+INSTALL_EXIT=1
+```
+
+Build error pasted from that log.
+
+```text
+Zot.app errSecInternalComponent
+Command CodeSign failed with a nonzero exit code
+BUILD FAILED
+```
+
+Codesign output pasted from that log.
+
+```text
+code object is not signed at all
+```
+
+Install output pasted from that log.
+
+```text
+ERROR Failed to install the app on the device
+Unable to Install Zot
+Failed to verify code signature
+ApplicationVerificationFailed
+```
+
+Installed is no. Device rejected the unsigned bundle. Signature remains the blocker. Next step is one keychain approval on loki console. Then rerun device build plus install to 5A3DC1B6. prove.sh returns ALL PASS locally. Ran on 2026-10-05.
