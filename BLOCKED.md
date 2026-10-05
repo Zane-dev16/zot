@@ -14,5 +14,6 @@
 - Download Zot Dev Push then rerun open plus decode plus build plus install to 5A3DC1B6. Owner operator. Date 2026-10-05.
 - Profile install on 2026-10-05 is no with BUILD none plus INSTALL none plus aps environment none. Owner operator. Date 2026-10-05.
 - Install to 5A3DC1B6 on 2026-10-05 is no with INSTALL exit 1 plus ApplicationVerificationFailed. Owner operator. Date 2026-10-05.
+- Open ~/zot-ios in Xcode then open Signing and Capabilities then select team 36V92GAJBT then select Zot Dev Push profile to clear CODE_SIGNING_ALLOWED NO. Owner operator. Date 2026-10-05.
 
 Add items here when only a human can unblock. Keep one line per item with owner and date.

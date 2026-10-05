@@ -65,3 +65,15 @@
 - Installed status is no measured via INSTALL exit 1 in same log.
 - Full log lives at tmp zot install only log measured via local file copy.
 - prove.sh returns ALL PASS locally. Ran on 2026-10-05.
+
+**Relocate 2026-10-05.**
+
+- Moved no. Copied yes to ~/zot-ios/Profiles/Zot_Dev_Push.mobileprovision. Measured via dest ls in relocate log.
+- Kept source at ~/Downloads/Zot_Dev_Push.mobileprovision. Measured via downloads ls in same log.
+- Managed profile is wildcard only at ~/Library/MobileDevice/Provisioning Profiles/9c25417c-dedf-439b-acf2-5ff6c8fa7815.mobileprovision. Measured via managed ls in same log.
+- Dest decode Name is Zot Dev Push. Measured via decode in same log.
+- Managed decode Name is iOS Team Provisioning Profile star. Measured via decode in same log.
+- Signing flag is CODE_SIGNING_ALLOWED = NO in project pbxproj at 4 lines. Measured via grep in same log.
+- Delete from Downloads was skipped. Managed copy does not match. Measured via decision line in same log.
+- Full log lives at tmp zot relocate log. Measured via local file copy.
+- prove.sh returns ALL PASS locally. Ran on 2026-10-05.
