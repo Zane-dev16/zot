@@ -184,3 +184,51 @@ Install status is no. Measured via missing profile file. BUILD line is none. No 
 ## Install only 2026-10-05
 
 Install status is no measured via INSTALL exit 1. BUILD exit is 0 with BUILD SUCCEEDED measured via tmp zot install only log. Codesign display exit is 1 with code object is not signed at all measured via same log. Codesign verify exit is 1 with same text measured via same log. Device error is integrity could not be verified with ApplicationVerificationFailed measured via devicectl output in same log. Device target is 5A3DC1B6 paired measured via devicectl list in same log. Root cause is unsigned output from generic build with sign not passed measured via sign was not passed line in same log. Full log lives at tmp zot install only log measured via local file copy. prove.sh returns ALL PASS locally. Ran on 2026-10-05.
+
+## Terminal sign 2026-10-05
+
+Terminal install was attempted fully from ssh only. No browser was used. No keychain password was tried. Full bulk log is at tmp zot terminal sign log. Remote bulk log is at same path on loki.
+
+Profile is Zot Dev Push. UUID is 211cc466-9b4d-491d-b196-e774266c9128. Decode exit is 0. Aps environment is development. Team is 36V92GAJBT. Install exit is 0. Identities found are 3. All identities show team Y8FVTH86T8. Identity used is 5C713A88D0F5C96DE396D594E75BBCB12DD50AFA. Project signing shows CODE SIGNING ALLOWED NO. Entitlements file is Zot Zot entitlements.
+
+Exact attempt 1 command follows.
+
+```
+xcodebuild -project ~/zot-ios/Zot.xcodeproj -scheme Zot -configuration Debug -destination "id=5A3DC1B6-4993-5CD6-A696-DD53903DCB89" CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="Zot Dev Push" CODE_SIGN_IDENTITY="Apple Development" DEVELOPMENT_TEAM=36V92GAJBT build
+```
+
+Exact attempt 2 command follows.
+
+```
+xcodebuild -project ~/zot-ios/Zot.xcodeproj -scheme Zot -configuration Debug -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=36V92GAJBT PROVISIONING_PROFILE_SPECIFIER="Zot Dev Push" CODE_SIGN_IDENTITY="Apple Development" build
+```
+
+Exact attempt 3 command follows.
+
+```
+xcodebuild build-for-testing -project ~/zot-ios/Zot.xcodeproj -scheme Zot -configuration Debug -destination "id=5A3DC1B6-4993-5CD6-A696-DD53903DCB89" CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=36V92GAJBT PROVISIONING_PROFILE_SPECIFIER="Zot Dev Push" CODE_SIGN_IDENTITY="Apple Development"
+```
+
+Correct install command follows.
+
+```
+xcrun devicectl device install app --device 5A3DC1B6-4993-5CD6-A696-DD53903DCB89 ~/zot-ios/build/Debug-iphoneos/Zot.app
+```
+
+Exits follow.
+
+```text
+EXIT_BUILD_1=65
+EXIT_BUILD_2=65
+EXIT_BUILD_3=65
+EXIT_BUILD_1_FULL=65
+EXIT_CODESIGN_DV=0
+EXIT_CODESIGN_VERIFY=0
+EXIT_EMBEDDED_CHECK=0
+EXIT_INSTALL_1=64
+EXIT_INSTALL_2=0
+EXIT_INSTALL_3=0
+EXIT_XCTEST_FIND=0
+```
+
+Build 1 fails with errSecInternalComponent. Build 2 fails the same way. Build 3 fails the same way. Full rerun fails the same way. Codesign text says not signed at all. Embedded file was missing. Install attempt 4 used wrong syntax. Inner installs failed with 0xe800801c. No xctest files were found. Installed is no. Failing gate is CodeSign errSecInternalComponent. Next step is one keychain approval on loki console. Then rerun device build plus install to 5A3DC1B6.
