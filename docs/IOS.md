@@ -304,3 +304,49 @@ LAUNCH devicectl device process launch
 ERROR: CoreDeviceService was unable to locate a device matching the requested device identifier. (DeviceIdentifier: ecid_414108770566172) (com.apple.dt.CoreDeviceError error 1011 (0x3F3))
 LAUNCH exit=1
 ```
+
+## Fallback clean 2026-10-05
+
+Fallback succeeded per launch PID 79916 in ssh log. Log lives at /tmp/zot-fallback-clean.log per local ls. Simulator build passed per SIM BUILD EXIT 0 in that log. Simulator install passed per SIM INSTALL EXIT 0 in that log. Simulator launch passed per SIM LAUNCH EXIT 0 in that log. Clean freed about 87 MB measured via df avail delta in ssh log. Device install stays blocked on iPhone offline per prior LIST log. prove.sh returns ALL PASS locally. Ran on 2026-10-05.
+
+**Impact.**
+
+App owner gets a runnable proof on ZotTest per launch PID in ssh log.
+
+Next engineer inherits fresh simulator build plus smaller DerivedData per clean list in ssh log.
+
+Scope stayed on ssh plus /tmp per command history.
+
+**Verify.**
+
+Paste follows per /tmp/zot-fallback-clean.log.
+
+```
+SIM BUILD EXIT 0
+SIM INSTALL EXIT 0
+com.zanishlabs.zot: 79916
+SIM LAUNCH EXIT 0
+/dev/disk3s1s1   239362496  12272168  39567136    24%  458726 395671360    0%   /
+/dev/disk3s1s1   239362496  12272168  38445252    25%  458726 384452520    0%   /
+/dev/disk3s1s1   239362496  12272168  38534248    25%  458726 385342480    0%   /
+```
+
+## Phone path 2026-10-05
+
+Phone path is green. Token line comes from /tmp/zot-phone-chat.log. Chat send line comes from /tmp/zot-phone-chat.log. Runs list line comes from /tmp/zot-phone-chat.log. Full bodies live in /tmp/zot-phone-chat.log per local cat. Device install stays blocked on iPhone offline per prior LIST log. prove.sh returns ALL PASS locally. Ran on 2026-10-05.
+
+**Setup.** Tmp daemon ran on port 18787 with a tmp db. No commits were made. Temp daemon and db were removed after the run.
+
+**Flow.** Pair start returned code 119198 for kind ios. Pair confirm with that code and no token returned 201 with token plus device of kind ios. POST runs with the token returned 201 with the run queued. GET runs with the token returned 200 with the run present and state done.
+
+**Notes.** One early confirm hit 429 rate limited after repeated pair starts during shell troubleshooting. A fresh start plus confirm pair succeeded after the window cleared.
+
+Evidence follows per /tmp/zot-phone-chat.log.
+
+```
+"token":"311c696506b4b870f25d9abc6ed6c326516e384c76a584c6cffae28ec89af0f7"
+"run":{"id":"3a35ebcd-b911-4304-97f0-cbcf8d6cb2d9","title":"phone chat proof","prompt":"hello from phone path","state":"queued"
+"runs":[{"id":"3a35ebcd-b911-4304-97f0-cbcf8d6cb2d9","title":"phone chat proof","prompt":"hello from phone path","state":"done","model":"echo"}
+```
+
+Installed is no. Failing gate is device offline. Next step is unlock iPhone and ensure WiFi or cable link. Then rerun the logged install command.
