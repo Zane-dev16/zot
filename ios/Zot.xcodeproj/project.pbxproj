@@ -5,29 +5,389 @@
 	};
 	objectVersion = 56;
 	objects = {
-		000000000000000000000002 = {isa = PBXBuildFile; fileRef = 000000000000000000000010; };
-		000000000000000000000003 = {isa = PBXBuildFile; fileRef = 000000000000000000000011; };
-		000000000000000000000004 = {isa = PBXBuildFile; fileRef = 000000000000000000000012; };
-		000000000000000000000005 = {isa = PBXBuildFile; fileRef = 000000000000000000000013; };
-		000000000000000000000010 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZotApp.swift; sourceTree = "<group>"; };
-		000000000000000000000011 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiClient.swift; sourceTree = "<group>"; };
-		000000000000000000000012 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		000000000000000000000013 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
-		000000000000000000000001 = {isa = XCBuildConfiguration; buildSettings = { ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES; CLANG_ENABLE_MODULES = YES; SDKROOT = iphoneos; CODE_SIGN_ALLOWED = NO; CODE_SIGN_IDENTITY = ""; CODE_SIGNING_ALLOWED = NO; CODE_SIGNING_REQUIRED = NO; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = ""; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; IPHONEOS_DEPLOYMENT_TARGET = 17.0; LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks"; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = "com.zot.app"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
-		111111111111111111111111 = {isa = PBXProject; attributes = { LastSwiftUpdateCheck = 2600; LastUpgradeCheck = 2600; TargetAttributes = { 666666666666666666666666 = { CreatedOnToolsVersion = 26.6; }; }; }; buildConfigurationList = BBBBBBBBBBBBBBBBBBBBBBBB; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base, ); mainGroup = 222222222222222222222222; productRefGroup = 444444444444444444444444; projectDirPath = ""; projectRoot = ""; targets = (666666666666666666666666, ); };
-		222222222222222222222222 = {isa = PBXGroup; children = (333333333333333333333333, 444444444444444444444444, ); sourceTree = "<group>"; };
-		333333333333333333333333 = {isa = PBXGroup; name = Zot; path = Zot; sourceTree = "<group>"; children = (000000000000000000000010, 000000000000000000000011, 000000000000000000000012, 000000000000000000000013, ); };
-		444444444444444444444444 = {isa = PBXGroup; name = Products; sourceTree = "<group>"; children = (777777777777777777777777, ); };
-		666666666666666666666666 = {isa = PBXNativeTarget; buildConfigurationList = EEEEEEEEEEEEEEEEEEEEEEEE; buildPhases = (888888888888888888888888, 999999999999999999999999, AAAAAAAAAAAAAAAAAAAAAAAA, ); buildRules = (); dependencies = (); name = Zot; productName = Zot; productReference = 777777777777777777777777; productType = "com.apple.product-type.application"; };
-		777777777777777777777777 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zot.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		888888888888888888888888 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000002, 000000000000000000000003, 000000000000000000000004, 000000000000000000000005, ); runOnlyForDeploymentPostprocessing = 0; };
-		999999999999999999999999 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		AAAAAAAAAAAAAAAAAAAAAAAA = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		BBBBBBBBBBBBBBBBBBBBBBBB = {isa = XCConfigurationList; buildConfigurations = (CCCCCCCCCCCCCCCCCCCCCCCC, DDDDDDDDDDDDDDDDDDDDDDDD, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		CCCCCCCCCCCCCCCCCCCCCCCC = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ANALYZER_NONNULL = YES; CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE; CLANG_CXX_LANGUAGE_STANDARD = "gnu++20"; CLANG_ENABLE_OBJC_WEAK = YES; CLANG_WARN_DOCUMENTATION_COMMENTS = YES; CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES; CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE; CODE_SIGN_ALLOWED = NO; CODE_SIGN_IDENTITY = ""; CODE_SIGNING_ALLOWED = NO; CODE_SIGNING_REQUIRED = NO; GCC_C_LANGUAGE_STANDARD = gnu17; MTL_FAST_MATH = YES; SWIFT_COMPILATION_MODE = wholemodule; }; name = Debug; };
-		DDDDDDDDDDDDDDDDDDDDDDDD = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ANALYZER_NONNULL = YES; CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE; CLANG_CXX_LANGUAGE_STANDARD = "gnu++20"; CLANG_ENABLE_OBJC_WEAK = YES; CLANG_WARN_DOCUMENTATION_COMMENTS = YES; CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES; CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE; CODE_SIGN_ALLOWED = NO; CODE_SIGN_IDENTITY = ""; CODE_SIGNING_ALLOWED = NO; CODE_SIGNING_REQUIRED = NO; GCC_C_LANGUAGE_STANDARD = gnu17; MTL_FAST_MATH = YES; SWIFT_COMPILATION_MODE = wholemodule; }; name = Release; };
-		EEEEEEEEEEEEEEEEEEEEEEEE = {isa = XCConfigurationList; buildConfigurations = (FFFFFFFFFFFFFFFFFFFFFFFF, 000000000000000000000001, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		FFFFFFFFFFFFFFFFFFFFFFFF = {isa = XCBuildConfiguration; buildSettings = { ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES; CLANG_ENABLE_MODULES = YES; SDKROOT = iphoneos; CODE_SIGN_ALLOWED = NO; CODE_SIGN_IDENTITY = ""; CODE_SIGNING_ALLOWED = NO; CODE_SIGNING_REQUIRED = NO; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = ""; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; IPHONEOS_DEPLOYMENT_TARGET = 17.0; LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks"; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = "com.zot.app"; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+
+/* Begin PBXBuildFile section */
+		000000000000000000000002 /* ZotApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000010 /* ZotApp.swift */; };
+		000000000000000000000003 /* ApiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000011 /* ApiClient.swift */; };
+		000000000000000000000004 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000012 /* ContentView.swift */; };
+		000000000000000000000005 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000013 /* Keychain.swift */; };
+		A10000000000000000000003 /* ZotAutoPairUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* ZotAutoPairUITests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		000000000000000000000010 /* ZotApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZotApp.swift; sourceTree = "<group>"; };
+		000000000000000000000011 /* ApiClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiClient.swift; sourceTree = "<group>"; };
+		000000000000000000000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		000000000000000000000013 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
+		000000000000000000000014 /* Zot.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Zot.entitlements; sourceTree = "<group>"; };
+		A10000000000000000000001 /* ZotAutoPairUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZotAutoPairUITests.swift; sourceTree = "<group>"; };
+		777777777777777777777777 /* Zot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zot.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000002 /* ZotUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ZotUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		999999999999999999999999 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		222222222222222222222222 = {
+			isa = PBXGroup;
+			children = (
+				333333333333333333333333 /* Zot */,
+				A10000000000000000000004 /* ZotUITests */,
+				444444444444444444444444 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		333333333333333333333333 /* Zot */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000010 /* ZotApp.swift */,
+				000000000000000000000011 /* ApiClient.swift */,
+				000000000000000000000012 /* ContentView.swift */,
+				000000000000000000000013 /* Keychain.swift */,
+				000000000000000000000014 /* Zot.entitlements */,
+			);
+			path = Zot;
+			sourceTree = "<group>";
+		};
+		444444444444444444444444 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				777777777777777777777777 /* Zot.app */,
+				A10000000000000000000002 /* ZotUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000004 /* ZotUITests */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000001 /* ZotAutoPairUITests.swift */,
+			);
+			path = ZotUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		666666666666666666666666 /* Zot */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EEEEEEEEEEEEEEEEEEEEEEEE /* Build configuration list for PBXNativeTarget "Zot" */;
+			buildPhases = (
+				888888888888888888888888 /* Sources */,
+				999999999999999999999999 /* Frameworks */,
+				AAAAAAAAAAAAAAAAAAAAAAAA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Zot;
+			productName = Zot;
+			productReference = 777777777777777777777777 /* Zot.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B20000000000000000000001 /* ZotUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B20000000000000000000005 /* Build configuration list for PBXNativeTarget "ZotUITests" */;
+			buildPhases = (
+				B20000000000000000000002 /* Sources */,
+				B20000000000000000000003 /* Frameworks */,
+				B20000000000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C30000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = ZotUITests;
+			productName = ZotUITests;
+			productReference = A10000000000000000000002 /* ZotUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+/* Begin PBXContainerItemProxy section */
+		C30000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 111111111111111111111111 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 666666666666666666666666;
+			remoteInfo = Zot;
+		};
+/* End PBXContainerItemProxy section */
+/* Begin PBXTargetDependency section */
+		C30000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+		target = 666666666666666666666666 /* Zot */;
+			targetProxy = C30000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXProject section */
+		111111111111111111111111 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					666666666666666666666666 = {
+						CreatedOnToolsVersion = 26.6;
+						SystemCapabilities = {
+							com.apple.Push = {
+								enabled = 1;
+							};
+						};
+					};
+					B20000000000000000000001 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 666666666666666666666666;
+					};
+				};
+			};
+			buildConfigurationList = BBBBBBBBBBBBBBBBBBBBBBBB /* Build configuration list for PBXProject "Zot" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 222222222222222222222222;
+			productRefGroup = 444444444444444444444444 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				666666666666666666666666 /* Zot */,
+				B20000000000000000000001 /* ZotUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B20000000000000000000004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAAAAAAAAAAAAAAAAAAAAAAA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B20000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000003 /* ZotAutoPairUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		888888888888888888888888 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				000000000000000000000002 /* ZotApp.swift in Sources */,
+				000000000000000000000003 /* ApiClient.swift in Sources */,
+				000000000000000000000004 /* ContentView.swift in Sources */,
+				000000000000000000000005 /* Keychain.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		000000000000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_ALLOWED = YES;
+				CODE_SIGN_ENTITLEMENTS = Zot/Zot.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 36V92GAJBT;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zanishlabs.zot;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		CCCCCCCCCCCCCCCCCCCCCCCC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_ALLOWED = YES;
+				CODE_SIGN_IDENTITY = "";
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Debug;
+		};
+		DDDDDDDDDDDDDDDDDDDDDDDD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_ALLOWED = YES;
+				CODE_SIGN_IDENTITY = "";
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		FFFFFFFFFFFFFFFFFFFFFFFF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_ALLOWED = YES;
+				CODE_SIGN_ENTITLEMENTS = Zot/Zot.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 36V92GAJBT;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zanishlabs.zot;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B20000000000000000000006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGNING_REQUIRED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = ZotUITests;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.zanishlabs.zot.uitests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Zot;
+			};
+			name = Debug;
+		};
+		B20000000000000000000007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGNING_REQUIRED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = ZotUITests;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.zanishlabs.zot.uitests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Zot;
+			};
+			name = Release;
+		};
+		B20000000000000000000005 /* Build configuration list for PBXNativeTarget "ZotUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B20000000000000000000006 /* Debug */,
+				B20000000000000000000007 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BBBBBBBBBBBBBBBBBBBBBBBB /* Build configuration list for PBXProject "Zot" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CCCCCCCCCCCCCCCCCCCCCCCC /* Debug */,
+				DDDDDDDDDDDDDDDDDDDDDDDD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EEEEEEEEEEEEEEEEEEEEEEEE /* Build configuration list for PBXNativeTarget "Zot" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FFFFFFFFFFFFFFFFFFFFFFFF /* Debug */,
+				000000000000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
 	};
-	rootObject = 111111111111111111111111;
+	rootObject = 111111111111111111111111 /* Project object */;
 }
