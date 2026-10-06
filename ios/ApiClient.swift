@@ -11,13 +11,27 @@ struct PairToken: Codable {
     let token: String
 }
 
+struct RunsResponse: Codable {
+    let runs: [AgentRun]
+}
+
+struct RunResponse: Codable {
+    let run: AgentRun
+}
+
 final class ApiClient: ObservableObject {
-    @Published var baseURL = "http://zot.local:8787"
+    @Published var baseURL = "http://192.168.68.50:8787"
     @Published var token: String? = Keychain.load()
     private var decoder: JSONDecoder { JSONDecoder() }
 
+    private func cleanBase() -> String {
+        var b = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        while b.hasSuffix("/") { b = String(b.dropLast()) }
+        return b
+    }
+
     private func req(_ path: String, method: String = "GET", body: Data? = nil, auth: Bool = true) throws -> URLRequest {
-        guard let url = URL(string: baseURL + path) else { throw URLError(.badURL) }
+        guard let url = URL(string: cleanBase() + path) else { throw URLError(.badURL) }
         var r = URLRequest(url: url)
         r.httpMethod = method
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -32,21 +46,21 @@ final class ApiClient: ObservableObject {
         let (data, resp) = try await URLSession.shared.data(for: r)
         guard [200, 201].contains((resp as? HTTPURLResponse)?.statusCode ?? 0) else { throw URLError(.userAuthenticationRequired) }
         let parsed = try decoder.decode(PairToken.self, from: data)
-        token = parsed.token
+        await MainActor.run { token = parsed.token }
         Keychain.save(parsed.token)
     }
 
     func fetchRuns() async throws -> [AgentRun] {
         let r = try req("/api/v1/runs")
         let (data, _) = try await URLSession.shared.data(for: r)
-        return try decoder.decode([AgentRun].self, from: data)
+        return try decoder.decode(RunsResponse.self, from: data).runs
     }
 
     func createRun(title: String, prompt: String) async throws -> AgentRun {
         let payload = try JSONSerialization.data(withJSONObject: ["title": title, "prompt": prompt])
         let r = try req("/api/v1/runs", method: "POST", body: payload)
         let (data, _) = try await URLSession.shared.data(for: r)
-        return try decoder.decode(AgentRun.self, from: data)
+        return try decoder.decode(RunResponse.self, from: data).run
     }
 
     func signOut() {

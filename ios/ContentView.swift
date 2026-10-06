@@ -3,7 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var session: SessionStore
     @State private var code = ""
-    @State private var host = "http://zot.local:8787"
+    @State private var host = "http://192.168.68.50:8787"
     @State private var runs: [AgentRun] = []
     @State private var errorMessage = ""
     @State private var prompt = ""
@@ -59,10 +59,12 @@ struct ContentView: View {
         }
     }
 
-    private func pair() async {
+    @MainActor private func pair() async {
         errorMessage = ""
-        session.client.baseURL = host
-        let trimmed = code.trimmingCharacters(in: .whitespaces)
+        var h = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        while h.hasSuffix("/") { h = String(h.dropLast()) }
+        session.client.baseURL = h
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count == 6, Int(trimmed) != nil else {
             errorMessage = "Code must be 6 digits."
             return
@@ -75,7 +77,7 @@ struct ContentView: View {
         }
     }
 
-    private func load() async {
+    @MainActor private func load() async {
         do {
             runs = try await session.client.fetchRuns()
         } catch {
@@ -83,8 +85,8 @@ struct ContentView: View {
         }
     }
 
-    private func send() async {
-        let text = prompt.trimmingCharacters(in: .whitespaces)
+    @MainActor private func send() async {
+        let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         prompt = ""
         do {

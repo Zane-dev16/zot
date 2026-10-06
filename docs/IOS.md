@@ -533,3 +533,42 @@ Impact follows.
 Bundle now carries the LAN exception. Measured via built plist on loki.
 Auto pair still stops before Send. Measured via TEST FAILED line in same log.
 Next step is Pair tap path trace on the simulator. This is inferred from confirmed transport plus confirmed daemon plus persistent Send failure.
+
+## Pair6 land 2026-10-06
+
+Pair UI proof is green. Measured via pass line in tmp zot pair6 test log.
+Test is testAutoPairAndChat on Clone 1 of ZotTest after 108.985 seconds. Measured via pass line in same log.
+Sim is ZotTest id 50849F6B. Measured via destination flag in same log.
+Log is 12899 bytes with 109 lines locally. Measured via wc on that path.
+Task context reports rows 5 plus runs 2 in pair6 db. This is reported not locally measured.
+Fix landed is ios ApiClient swift plus ContentView swift plus ZotAutoPairUITests swift. Measured via git diff stat.
+ApiClient trims host whitespace plus strips trailing slash. Measured via cleanBase in repo ApiClient swift.
+ApiClient decodes RunsResponse plus RunResponse. Measured via new structs in repo ApiClient swift.
+ApiClient sets token on MainActor. Measured via MainActor run in repo ApiClient swift.
+ContentView trims host plus code plus prompt with newlines. Measured via repo ContentView swift.
+ContentView strips trailing slash and marks pair plus load plus send MainActor. Measured via repo ContentView swift.
+UITest adds sleeps plus Send retry loop plus prompt retry loop plus 30 second chat wait. Measured via repo UITest file.
+prove.sh returns ALL PASS locally. Measured via rerun on 2026-10-06.
+
+Evidence follows per tmp zot pair6 test log.
+
+```text
+Test case 'ZotAutoPairUITests.testAutoPairAndChat()' passed on 'Clone 1 of ZotTest - ZotUITests-Runner (46399)' (108.985 seconds)
+```
+
+```text
+12899 /tmp/zot-pair6-test.log
+109 /tmp/zot-pair6-test.log
+```
+
+**Principles.**
+Principle Prove It Works read the real test log plus reran prove. Measured via pass line plus prove output.
+Principle Sequence Verifiable Units landed the green test before this commit. Measured via pass then prove then commit order.
+Principle Laziness Protocol kept the land to vetted ios files plus docs. Measured via git diff stat.
+Principle Fix Root Causes kept the vetted host plus decode plus actor fix intact. Measured via diff review before commit.
+
+Impact follows.
+
+Pair UI is green on the simulator. Measured via pass line in same log.
+Backend plus Send plus chat all pass in one run. Measured via same pass line.
+Next step is this land commit with no push. This is ordered by the task grant.

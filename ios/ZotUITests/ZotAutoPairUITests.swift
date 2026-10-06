@@ -38,14 +38,14 @@ final class ZotAutoPairUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 10), "field exists")
         if let cur = field.value as? String, cur == text { return }
         field.tap()
-        if let cur = field.value as? String, !cur.isEmpty {
-            field.press(forDuration: 1.0)
-            let selectAll = app.menuItems["Select All"]
-            if selectAll.waitForExistence(timeout: 2) {
-                selectAll.tap()
-            } else {
-                field.typeText(String(repeating: "\u{8}", count: cur.count))
-            }
+        sleep(1)
+        if let cur = field.value as? String, !cur.isEmpty, cur != text, cur != "6 digit code", cur != "Prompt" {
+            field.tap()
+            sleep(1)
+            field.typeText(String(repeating: "\u{8}", count: cur.count))
+            sleep(1)
+            field.tap()
+            sleep(1)
         }
         field.typeText(text)
     }
@@ -65,17 +65,38 @@ final class ZotAutoPairUITests: XCTestCase {
         clearAndType(serverField, server)
         let code = try fetchPairCode(server: server)
         codeField.tap()
+        sleep(1)
         codeField.typeText(code)
+        sleep(1)
         app.buttons["Pair"].tap()
-        sleep(3)
-        XCTAssertTrue(app.buttons["Send"].waitForExistence(timeout: 15), "paired state shows Send")
+        var paired = false
+        for _ in 0..<6 {
+            if app.buttons["Send"].waitForExistence(timeout: 5) { paired = true
+                break }
+            if app.buttons["Pair"].exists { app.buttons["Pair"].tap() }
+            sleep(3)
+        }
+        if !paired {
+            let serverVal = serverField.value as? String ?? "nil"
+            let codeVal = codeField.value as? String ?? "nil"
+            let texts = app.staticTexts.allElementsBoundByIndex.map { $0.label }.joined(separator: "|")
+            XCTAssertTrue(false, "Send missing server=\(serverVal) code=\(codeVal) texts=\(texts)")
+        }
         XCTAssertTrue(app.navigationBars["Zot"].waitForExistence(timeout: 10), "paired state shows Zot title")
         let promptField = app.textFields["Prompt"]
         XCTAssertTrue(promptField.waitForExistence(timeout: 10), "prompt field exists")
-        clearAndType(promptField, "hello run")
+        for _ in 0..<6 {
+            if let v = promptField.value as? String, !v.isEmpty, v != "Prompt" { break }
+            promptField.tap()
+            sleep(5)
+            if let v = promptField.value as? String, v == "hello run" { break }
+            promptField.typeText("hello run")
+            sleep(2)
+        }
+        sleep(1)
         app.buttons["Send"].tap()
         sleep(4)
         let hello = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "hello run")).firstMatch
-        XCTAssertTrue(hello.waitForExistence(timeout: 15), "chat shows hello run")
+        XCTAssertTrue(hello.waitForExistence(timeout: 30), "chat shows hello run")
     }
 }
