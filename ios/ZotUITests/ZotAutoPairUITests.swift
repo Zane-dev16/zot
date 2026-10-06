@@ -36,6 +36,7 @@ final class ZotAutoPairUITests: XCTestCase {
     }
     func clearAndType(_ field: XCUIElement, _ text: String) {
         XCTAssertTrue(field.waitForExistence(timeout: 10), "field exists")
+        if let cur = field.value as? String, cur == text { return }
         field.tap()
         if let cur = field.value as? String, !cur.isEmpty {
             field.press(forDuration: 1.0)

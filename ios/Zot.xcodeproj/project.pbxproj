@@ -19,6 +19,7 @@
 		000000000000000000000011 /* ApiClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiClient.swift; sourceTree = "<group>"; };
 		000000000000000000000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		000000000000000000000013 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
+		000000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		000000000000000000000014 /* Zot.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Zot.entitlements; sourceTree = "<group>"; };
 		A10000000000000000000001 /* ZotAutoPairUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZotAutoPairUITests.swift; sourceTree = "<group>"; };
 		777777777777777777777777 /* Zot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zot.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -60,6 +61,7 @@
 				000000000000000000000012 /* ContentView.swift */,
 				000000000000000000000013 /* Keychain.swift */,
 				000000000000000000000014 /* Zot.entitlements */,
+				000000000000000000000015 /* Info.plist */,
 			);
 			path = Zot;
 			sourceTree = "<group>";
@@ -231,6 +233,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 36V92GAJBT;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Zot/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -304,6 +307,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 36V92GAJBT;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Zot/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

@@ -491,3 +491,45 @@ Impact follows.
 Bundle linkage stays green from pair3. Inferred from unchanged pbxproj plus compiled test in this log.
 Auto pair still stops before Send. Measured via TEST FAILED line in same log.
 Next step is transport exception review. This is inferred from prior red with fresh code and no confirm.
+
+## Pair5 land 2026-10-06
+
+Transport fix landed in the repo. Measured via git diff on ios Info plist plus pbxproj plus UITest file.
+Source plist holds ATS exception for 192.168.68.50. Measured via repo file at ios Info plist.
+Project merges source plist with generated keys. Measured via INFOPLIST FILE in pbxproj for Debug plus Release.
+Test skips retype when field value already matches. Measured via early return in clearAndType in repo UITest file.
+Green is no. Measured via TEST FAILED line in tmp zot pair5 test log.
+Failure is testAutoPairAndChat on Clone 1 after 134.103 seconds. Measured via failure line in same log.
+Failure text is paired state shows Send at line 71. Measured via xcresult on loki.
+Log is 65381 bytes with 188 lines on loki. Measured via wc on that path.
+Boot id was ca9a881f. Measured via daemon log on loki.
+Health returned ready. Measured via curl on LAN URL.
+Built plist holds the 192.168.68.50 exception. Measured via PlistBuddy on built app on loki.
+prove.sh returns ALL PASS locally. Measured via rerun on 2026-10-06.
+
+Evidence follows per tmp zot pair5 test log.
+
+```text
+** TEST FAILED **
+Test case 'ZotAutoPairUITests.testAutoPairAndChat()' failed on 'Clone 1 of ZotTest - ZotUITests-Runner (14826)' (134.103 seconds)
+```
+
+```text
+ZotAutoPairUITests.swift.71. XCTAssertTrue failed - paired state shows Send
+```
+
+```text
+188 /tmp/zot-pair5-test.log
+65381 /tmp/zot-pair5-test.log
+```
+
+**Principles.**
+Principle Laziness Protocol kept the land to vetted files with no new abstraction. Measured via git diff stat.
+Principle Fix Root Causes confirmed daemon health plus built ATS before blaming app code. Measured via curl plus PlistBuddy output.
+Principle Prove It Works read the built plist plus xcresult failure string. Measured via PlistBuddy plus xcresulttool output.
+
+Impact follows.
+
+Bundle now carries the LAN exception. Measured via built plist on loki.
+Auto pair still stops before Send. Measured via TEST FAILED line in same log.
+Next step is Pair tap path trace on the simulator. This is inferred from confirmed transport plus confirmed daemon plus persistent Send failure.
