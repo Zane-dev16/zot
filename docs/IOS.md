@@ -409,3 +409,32 @@ RUN state queued then done
 VOICE hit true
 MEMORY_GET items 1
 ```
+
+## Pair UI test 2026-10-06
+
+Green is no. Measured via TEST FAILED in log.
+Log lives at tmp zot pair2 test log locally and on loki. Measured via wc 253 lines in both places.
+No TEST BUILD line exists in the log. Measured via grep count 0.
+Signing used Sign to Run Locally. Measured via log grep. No denial text exists in the log. Measured via grep count 0 on loki.
+Test file holds 94 lines. Measured via wc on loki. It fetches a live pair code over HTTP. It drives Base URL plus 6 digit code plus Pair in the UI. It asserts Send plus Zot title plus hello run chat text.
+Send posts through ApiClient createRun to api v1 runs. No new test file was added.
+Root cause is a dangling Sources phase id. The UITest target lists B20000000000000000000002 as its Sources phase. That id appears once in project pbxproj. Measured via grep count 1 on loki. No phase object defines it. The PBXSourcesBuildPhase section defines only the app Sources id. The built ZotUITests xctest bundle holds only Info plist. Measured via ls on loki. No executable exists in the bundle. The runner error matches an empty test bundle.
+No project file fix was applied. Project file repair sits outside this phase scope.
+prove.sh returns ALL PASS locally. Ran on 2026-10-06.
+
+Evidence follows per tmp zot pair2 test log.
+
+```text
+ZotUITests-Runner (95588) encountered an error (Failed to load the test bundle. (Underlying Error: The bundle "ZotUITests" couldn't be loaded because its executable couldn't be located. The bundle's executable couldn't be located. Try reinstalling the bundle.))
+** TEST FAILED **
+```
+
+Bundle state follows per ls on loki.
+
+```text
+ZotUITests.xctest holds Info.plist only. No executable.
+```
+
+Impact follows.
+
+Users get no automated pair proof yet. Manual pairing stays the fallback. Next engineer inherits the exact failing bundle state plus the dangling phase id above.
