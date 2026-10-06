@@ -72,7 +72,7 @@ POST /api/v1/pair/confirm issues a token, needs pending code
 DELETE /api/v1/devices/:id revokes a session
 ```
 
-Pair confirm currently requires auth in code because it sits behind the auth gate. The iOS stub calls it without auth. Pick one model before shipping pairing. Rate limits apply to pair start and pair confirm.
+Pair confirm is public. Measured via 201 without token on local port 18787. The iOS stub calls it without auth. This matches the code. Rate limits apply to pair start and pair confirm.
 
 Stream route in this list.
 

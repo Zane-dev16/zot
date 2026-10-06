@@ -396,3 +396,16 @@ SIM LAUNCH EXIT:0
 **Impact.** App owner gets runnable proof on device plus ZotTest. Next engineer inherits one Zot DerivedData dir plus only current logs.
 
 Installed is yes. Failing gate is none for install. Next step is visual check on phone. Then add push and pairing end to end.
+
+## Land proof 2026-10-06
+
+Paired is yes. Measured via CONFIRM_HTTP 201 in log. Token auth works on runs plus voice plus memory. Measured via 200 responses in log. Daemon ran on 127.0.0.1 port 18787 with fresh db at tmp zot land proof db. Log lives at tmp zot land proof log. prove.sh returns ALL PASS locally. Ran on 2026-10-06.
+
+Evidence follows per tmp zot land proof log.
+
+```text
+CONFIRM_HTTP=201
+RUN state queued then done
+VOICE hit true
+MEMORY_GET items 1
+```
