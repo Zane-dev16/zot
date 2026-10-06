@@ -467,4 +467,27 @@ HEALTH ready
 
 Impact follows.
 
-Pairing UI bundle now loads on sim. Auto pair flow still does not reach Send. Next engineer owns pairing step not bundle linkage.
+Pairing UI bundle now loads on sim. Auto pair flow still does not reach Send. Step fix is now in the repo.
+
+## Pair4 land 2026-10-06
+
+Green is no. Measured via TEST FAILED line in tmp zot pair4 test log.
+Failure is testAutoPairAndChat on Clone 1 after 464.202 seconds. Measured via failure line in same log.
+Build compiled the test file in same run. Measured via SwiftCompile line for ZotAutoPairUITests in same log.
+Log is 60862 bytes with 179 lines locally. Measured via wc on that path.
+Fix landed is ios ZotUITests ZotAutoPairUITests swift. Measured via repo file at that path.
+Clear helper uses one bulk backspace string with no sleep loop. Measured via clearAndType body in that file.
+Fetch runs after server field entry and before code entry. Measured via order in testAutoPairAndChat in that file.
+No app source changed in this pass. Measured via git diff on ios app files.
+prove.sh returns ALL PASS locally. Measured via rerun on 2026-10-06.
+
+**Principles.**
+Principle Laziness Protocol kept the edit to one test file with no new helper. Measured via git diff stat.
+Principle Fix Root Causes moved fetch after the slow step instead of raising the timeout. Measured via new order in the test file.
+Principle Prove It Works reran local prove plus read the real test log. Measured via prove output plus local log.
+
+Impact follows.
+
+Bundle linkage stays green from pair3. Inferred from unchanged pbxproj plus compiled test in this log.
+Auto pair still stops before Send. Measured via TEST FAILED line in same log.
+Next step is transport exception review. This is inferred from prior red with fresh code and no confirm.
