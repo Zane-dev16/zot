@@ -51,7 +51,7 @@ GET /api/v1/memory lists items, supports key plus q plus runId plus limit
 PUT /api/v1/memory/:key creates or updates one key, needs string value
 ```
 
-Memory query defaults to 20 rows and caps at 100 rows. A q search tries FTS first and falls back to LIKE. Results state via fts or via like.
+Memory query defaults to 20 rows and caps at 100 rows. A q search tries FTS first, then vector rank, then LIKE. Results state via fts or via vector or via like.
 
 Authed job routes in this list.
 

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS memory_item(
   run_id TEXT REFERENCES agent_run(id) ON DELETE CASCADE,
   key TEXT NOT NULL,
   value TEXT NOT NULL,
+  embedding TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
