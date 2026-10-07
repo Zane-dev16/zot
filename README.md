@@ -26,3 +26,6 @@ Quickstart.
 3. Open `http://localhost:8787/` for the browser chat.
 4. Runs in waiting_tool show Approve and Cancel. Activity lists tool events per run.
 5. Api lives under `http://localhost:8787/api/v1`. See `docs/API.md` for routes.
+6. Env vars are optional for the default path. See `docs/QUICKSTART.md` for the list.
+7. Chatops inbound needs `CHATOPS_INBOUND_SECRET`. See `docs/CHATOPS.md`.
+8. Skill tools load from `skills`. See `docs/SKILLS.md`.

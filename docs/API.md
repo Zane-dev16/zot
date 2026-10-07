@@ -74,6 +74,32 @@ DELETE /api/v1/devices/:id revokes a session
 
 Pair confirm is public. Measured via 201 without token on local port 18787. The iOS stub calls it without auth. This matches the code. Rate limits apply to pair start and pair confirm.
 
+Authed voice route in this list.
+
+```text
+POST /api/v1/voice/ingest takes text plus optional deviceId plus at plus lang, wake miss returns 200 with hit false, wake hit creates a queued run and returns 201, bad input returns 400, rate limit returns 429
+```
+
+The wake word strips from the prompt before the run is created. Owner uses body deviceId when present. It falls back to the auth session id when missing. See `docs/VOICE.md` for the transcript shape.
+
+Authed push routes in this list.
+
+```text
+POST /api/v1/push/tokens registers one token, needs token plus optional deviceId plus platform, bad token returns 400
+GET /api/v1/push/tokens lists tokens
+DELETE /api/v1/push/tokens/:token removes one token
+```
+
+Platform accepts ios only for now. See `docs/APNS.md` for env config.
+
+Chatops inbound in this list.
+
+```text
+POST /api/v1/chatops/inbound accepts target plus text, needs x-chatops-secret header, returns queued row with 202
+```
+
+The route uses its own secret. Bearer auth does not apply here. Good input persists one chat log row. The daemon tick drains the queue and persists one out row per send.
+
 Stream route in this list.
 
 ```text

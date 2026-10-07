@@ -51,6 +51,23 @@ curl -H "Authorization: Bearer $ZOT_TOKEN" \
   "http://127.0.0.1:8787/api/v1/runs/<id>/events?since=0"
 ```
 
+## Env vars
+
+The daemon needs no env vars for the default path. Port defaults to 8787. Set `PORT` to change it.
+
+Optional vars in this list.
+
+```text
+CHATOPS_INBOUND_SECRET guards POST /api/v1/chatops/inbound, see docs/CHATOPS.md
+CHATOPS_SLACK_WEBHOOK plus CHATOPS_TELEGRAM_WEBHOOK plus CHATOPS_DISCORD_WEBHOOK set outbound targets, see docs/CHATOPS.md
+CHATOPS_INTERVAL_MS sets the queue drain tick in ms, default 5000
+OPENAI_API_KEY plus ANTHROPIC_API_KEY enable live models, see docs/MODELS.md
+ZOT_OPENAI_MODEL plus ZOT_ANTHROPIC_MODEL plus ZOT_MODEL_TIMEOUT_MS tune live models
+APNS_TEAM_ID plus APNS_KEY_ID plus APNS_KEY_PATH plus APNS_TOPIC plus APNS_MODE enable push, see docs/APNS.md
+```
+
+The Bearer token comes from pairing. Pair start returns a code. Pair confirm returns the token. Save it as `ZOT_TOKEN` for curl calls below. See `docs/API.md` for routes and `docs/SKILLS.md` for skill tools.
+
 ## Pair iOS on the LAN
 
 Start the daemon on a host the phone can reach. Start pairing from the browser UI. Set Base URL in the Zot app to the host and port. Enter the six digit code within five minutes. Confirm saves the token in Keychain. Fetch runs and post new runs. See `docs/IOS.md` for the full flow and `docs/API.md` for routes.

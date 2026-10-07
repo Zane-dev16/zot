@@ -15,4 +15,4 @@ Three surfaces share one domain.
 
 `src/daemon2.js` also attaches `src/stream.js` and ticks `runner.tickScheduler` every 15 seconds. `runner.tickScheduler` routes due jobs through `scheduler.tickJobs` and records each fire in `scheduler_run`.
 
-Next. Decide if pair confirm stays authed.
+Pair confirm stays public. `src/api.js` wires it before bearer auth. The iOS stub calls it without a token.
