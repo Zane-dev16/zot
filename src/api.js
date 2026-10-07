@@ -8,6 +8,7 @@ const scheduler = require("./scheduler");
 const router = require("./router");
 const voice = require("./voice");
 const chatops = require("./chatops");
+const push = require("./push");
 
 function send(res, status, obj) {
 	const body = JSON.stringify(obj);
@@ -222,6 +223,8 @@ function createHandler(db) {
 			/^\/api\/v1\/pair\/confirm$/,
 			/^\/api\/v1\/chatops\/inbound$/,
 			/^\/api\/v1\/voice\/ingest$/,
+			/^\/api\/v1\/push\/tokens$/,
+			/^\/api\/v1\/push\/tokens\/[^/]+$/,
 		];
 		if (!KNOWN.some((r) => r.test(path))) {
 			send(res, 404, { error: "not found" });
@@ -797,6 +800,39 @@ function createHandler(db) {
 				id,
 			);
 			send(res, 200, { ok: true });
+			return;
+		}
+
+		if (method === "POST" && path === "/api/v1/push/tokens") {
+			let body = null;
+			try {
+				body = await readBody(req);
+			} catch (e) {
+				send(res, 400, { error: e.message });
+				return;
+			}
+			try {
+				const out = push.registerToken(db, body || {});
+				send(res, 201, { token: out });
+			} catch (e) {
+				send(res, 400, { error: e.message });
+			}
+			return;
+		}
+
+		if (method === "GET" && path === "/api/v1/push/tokens") {
+			send(res, 200, { tokens: push.listTokens(db) });
+			return;
+		}
+
+		m = path.match(/^\/api\/v1\/push\/tokens\/([^/]+)$/);
+		if (method === "DELETE" && m) {
+			try {
+				const out = push.removeToken(db, decodeURIComponent(m[1]));
+				send(res, 200, out);
+			} catch (e) {
+				send(res, 400, { error: e.message });
+			}
 			return;
 		}
 

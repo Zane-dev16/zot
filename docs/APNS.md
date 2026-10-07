@@ -46,7 +46,7 @@ Platform accepts ios only for now
 Bad token returns ok false with error invalid token
 ```
 
-Future route wiring in this list.
+Live route wiring in this list.
 
 ```text
 POST /api/v1/push/tokens registers one token and needs auth
@@ -54,16 +54,24 @@ GET /api/v1/push/tokens lists tokens and needs auth
 DELETE /api/v1/push/tokens/:token removes one token and needs auth
 ```
 
-Route wiring is not done yet. Helpers parseRegisterBody plus registerToken plus listTokens plus removeToken already match those routes.
+Routes live in src api.js and call push registerToken plus listTokens plus removeToken. Bad tokens return 400. Missing auth returns 401.
 
-**Verify.** Run the checks below from repo root. The script uses fake env and an in memory db. It never touches the network.
+**Live send.** Config accepts a PEM string in APNS_KEY_PEM or a p8 file at APNS_KEY_PATH. PEM wins when both are set. sendPush without live stays a queued stub. sendPush with live true signs an ES256 provider token and POSTs over HTTP2 to the sandbox host in development or the prod host in production. A missing or unreadable key falls back to queued so local runs never fail. The daemon fires notifyRunDone on every run.done event with live true and swallows transport errors so one bad push never kills the loop. iOS registers via PushDelegate in ZotApp swift plus registerPushToken in ApiClient swift. ContentView uploads the stored hex token after pair and on load.
+
+Keys never live in this repo. The live verify script mints an ephemeral P-256 key in tmp and deletes it on exit.
+
+**Verify.** Run the checks below from repo root. Both scripts use fake or ephemeral keys and stub transports. Neither touches the network.
 
 Commands in this list.
 
 ```text
 node --check src/push.js
+node --check src/api.js
+node --check src/daemon2.js
 node --check scripts/verify-push.js
+node --check scripts/verify-push-live.js
 node scripts/verify-push.js
+node scripts/verify-push-live.js
 ```
 
-Expected output ends with register and bulk PASS lines. Real APNs send is a later step. It replaces the queued branch with a signed HTTP2 call using the stored key.
+Expected output ends with register and bulk PASS lines plus ALL PASS push live with stub key.

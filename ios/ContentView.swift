@@ -56,6 +56,10 @@ struct ContentView: View {
                 Button("Unpair") { session.client.signOut() }
             }
             .task { await load() }
+            .onReceive(NotificationCenter.default.publisher(for: .zotPushToken)) { note in
+                guard let hex = note.object as? String else { return }
+                Task { await pushUp(hex) }
+            }
         }
     }
 
@@ -80,8 +84,19 @@ struct ContentView: View {
     @MainActor private func load() async {
         do {
             runs = try await session.client.fetchRuns()
+            if let hex = UserDefaults.standard.string(forKey: "ZotPushToken") {
+                await pushUp(hex)
+            }
         } catch {
             errorMessage = "Fetch failed. Check LAN and token."
+        }
+    }
+
+    @MainActor private func pushUp(_ hex: String) async {
+        do {
+            try await session.client.registerPushToken(hex)
+        } catch {
+            errorMessage = "Push register failed. Pull to retry."
         }
     }
 

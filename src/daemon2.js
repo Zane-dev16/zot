@@ -6,6 +6,7 @@ const http = require("http");
 const path = require("path");
 
 const { openDb, DATA_DIR, version } = require("./db");
+const push = require("./push");
 const { createHandler } = require("./api");
 const events = require("./events");
 const stream = require("./stream");
@@ -112,7 +113,12 @@ function boot(opts = {}) {
 	const log = events.createLog();
 	const server = createServer(db, bootId, startedAt);
 	const streamHandle = stream.attach(server, { db, log });
-	const publish = (type, data) => streamHandle.publish(type, data);
+	const publish = (type, data) => {
+		streamHandle.publish(type, data);
+		if (type === "run.done" && data && data.runId) {
+			push.notifyRunDone(db, data.runId, { live: true }).catch(() => {});
+		}
+	};
 	const runTick = setInterval(() => {
 		try {
 			runner.pollOnce(db, { publish });

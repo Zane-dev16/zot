@@ -63,6 +63,14 @@ final class ApiClient: ObservableObject {
         return try decoder.decode(RunResponse.self, from: data).run
     }
 
+    func registerPushToken(_ deviceToken: String) async throws {
+        let cleaned = deviceToken.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let payload = try JSONSerialization.data(withJSONObject: ["token": cleaned, "platform": "ios"])
+        let r = try req("/api/v1/push/tokens", method: "POST", body: payload)
+        let (_, resp) = try await URLSession.shared.data(for: r)
+        guard [200, 201].contains((resp as? HTTPURLResponse)?.statusCode ?? 0) else { throw URLError(.cannotWriteToFile) }
+    }
+
     func signOut() {
         token = nil
         Keychain.delete()
