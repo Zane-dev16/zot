@@ -1,0 +1,1 @@
+{"description": "Real stdio echo server for live tool calls.", "name": "mcp-echo", "tools": [{"mcp": {"args": ["scripts/mcp-echo.js"], "command": "node"}, "name": "mcp.echo"}]}

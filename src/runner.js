@@ -3,13 +3,41 @@
 // Runner loop plus scheduler tick. Both are poll functions the daemon
 // calls on an interval. Tool exec stays synchronous via execFileSync.
 const crypto = require("node:crypto");
+const path = require("node:path");
 const runs = require("./runs");
 const scheduler = require("./scheduler");
 const router = require("./router");
 const tools = require("./tools");
+const skills = require("./skills");
 
 const RUNNER_INTERVAL_MS = 1000;
 const SCHEDULER_INTERVAL_MS = 15000;
+const SKILLS_DIR = path.join(__dirname, "..", "skills");
+const SKILL_TIMEOUT_MS = 5000;
+
+// Skill tools route through one entry with an allowlist.
+function isSkillTool(tool) {
+	if (tool === "local.echo") return true;
+	return typeof tool === "string" && tool.indexOf("mcp.") === 0;
+}
+
+// Disk holds the default tool list and allowlist.
+function skillToolsFor(opts) {
+	const o = opts || {};
+	if (Array.isArray(o.skillTools)) return o.skillTools;
+	try {
+		return skills.loadSkills(o.skillsDir || SKILLS_DIR).tools;
+	} catch {
+		return [];
+	}
+}
+
+// Caller list wins. Disk allowlist is the default.
+function skillAllowlistFor(skillTools, opts) {
+	const o = opts || {};
+	if (Array.isArray(o.mcpAllowlist)) return o.mcpAllowlist;
+	return skills.mcpAllowlist(skillTools);
+}
 
 function newId() {
 	return crypto.randomUUID();
@@ -48,11 +76,40 @@ function resumeApprovedOnce(db, opts) {
 	if (!row) return null;
 	const parsed = tools.parseToolPrompt(row.prompt);
 	if (!parsed) return null;
-	const outcome = tools.execToolSync({
-		tool: parsed.tool,
-		args: parsed.args,
-		root: o.root,
-	});
+	let outcome;
+	if (isSkillTool(parsed.tool)) {
+		const skillTools = skillToolsFor(o);
+		const allowlist = skillAllowlistFor(skillTools, o);
+		const routed = skills.execSkillToolSync(
+			skillTools,
+			parsed.tool,
+			parsed.args,
+			{
+				allowlist: allowlist,
+				timeoutMs: o.mcpTimeoutMs == null ? SKILL_TIMEOUT_MS : o.mcpTimeoutMs,
+			},
+		);
+		if (routed && routed.result !== undefined) {
+			outcome =
+				routed.ok === true
+					? { ok: true, error: null, result: routed.result }
+					: { ok: false, error: routed.error || "failed", result: null };
+		} else if (routed && routed.ok === true) {
+			outcome = { ok: true, error: null, result: routed.args || routed };
+		} else {
+			outcome = {
+				ok: false,
+				error: (routed && routed.error) || "failed",
+				result: null,
+			};
+		}
+	} else {
+		outcome = tools.execToolSync({
+			tool: parsed.tool,
+			args: parsed.args,
+			root: o.root,
+		});
+	}
 	let text = "error:" + String(outcome.error || "failed").slice(0, 200);
 	if (outcome.ok)
 		text = String(outcome.result == null ? "" : outcome.result).slice(0, 200);
@@ -207,6 +264,8 @@ function tickScheduler(db, opts) {
 module.exports = {
 	RUNNER_INTERVAL_MS,
 	SCHEDULER_INTERVAL_MS,
+	SKILLS_DIR,
+	isSkillTool,
 	ensureModelColumn,
 	insertRun,
 	resumeApprovedOnce,

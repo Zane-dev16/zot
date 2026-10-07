@@ -12,6 +12,10 @@ Fields are as follows:
 
 `local.echo` is sync and has no spawn. It returns `args.text` as a string. It stays the default for offline checks.
 
+## Real echo server
+
+`mcp.echo` is a real stdio server. It lives in `skills/mcp-echo.json`. It spawns `node scripts/mcp-echo.js`. It echoes stdin JSON with an `echo` prefix. The runner executes it through `execSkillToolSync` with the disk allowlist. `mcp.ping` keeps the old canned stub for compat.
+
 ## MCP stdio
 
 An MCP tool has `mcp` with `command` plus `args`. `command` is a binary. `args` is a string array. Spawn uses no shell. Request args go to stdin as JSON. Server stdout is the result text. Output is capped at 2000 chars.
