@@ -7,6 +7,7 @@ const memory = require("./memory");
 const scheduler = require("./scheduler");
 const router = require("./router");
 const voice = require("./voice");
+const chatops = require("./chatops");
 
 function send(res, status, obj) {
 	const body = JSON.stringify(obj);
@@ -219,6 +220,7 @@ function createHandler(db) {
 			/^\/api\/v1\/devices\/[^/]+$/,
 			/^\/api\/v1\/pair\/start$/,
 			/^\/api\/v1\/pair\/confirm$/,
+			/^\/api\/v1\/chatops\/inbound$/,
 			/^\/api\/v1\/voice\/ingest$/,
 		];
 		if (!KNOWN.some((r) => r.test(path))) {
@@ -296,6 +298,33 @@ function createHandler(db) {
 			} catch (e) {
 				send(res, 400, { error: e.message });
 			}
+			return;
+		}
+
+		// Inbound chat uses its own secret. Bearer auth does not apply here.
+		if (method === "POST" && path === "/api/v1/chatops/inbound") {
+			let body = null;
+			try {
+				body = await readBody(req);
+			} catch (e) {
+				send(res, 400, { error: e.message });
+				return;
+			}
+			const header = req.headers ? req.headers["x-chatops-secret"] : null;
+			const provided = typeof header === "string" ? header : "";
+			const out = chatops.handleInbound(body || {}, provided, {});
+			if (out.ok) {
+				try {
+					chatops.ensureChatLogTable(db);
+					const last = chatops.listLog().slice(-1)[0];
+					if (last) chatops.persistChatLog(db, last);
+				} catch {
+					// Persist is best effort. Queue already holds the row.
+				}
+				send(res, out.status, { ok: true, queued: out.queued });
+				return;
+			}
+			send(res, out.status, { error: out.error });
 			return;
 		}
 

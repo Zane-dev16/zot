@@ -20,6 +20,18 @@ let seq = 0;
 const queue = [];
 const log = [];
 const MAX_LOG = 200;
+const CHATOPS_INTERVAL_MS = 5000;
+const CHAT_LOG_DDL = [
+	"CREATE TABLE IF NOT EXISTS chat_log(",
+	"  id INTEGER PRIMARY KEY AUTOINCREMENT,",
+	"  direction TEXT NOT NULL,",
+	"  target TEXT NOT NULL,",
+	"  text TEXT NOT NULL DEFAULT '',",
+	"  ok INTEGER NOT NULL DEFAULT 0,",
+	"  status INTEGER,",
+	"  at INTEGER NOT NULL",
+	");",
+].join("\n");
 
 function getWebhookUrl(target, env) {
 	const key = ENV_KEYS[target];
@@ -196,10 +208,73 @@ function handleInbound(body, providedSecret, opts) {
 	return { ok: true, status: 202, queued: row };
 }
 
+// Persisted log mirrors the memory log for restart safe history.
+function ensureChatLogTable(db) {
+	db.exec(CHAT_LOG_DDL);
+}
+
+// Write one memory log row into the chat_log table.
+function persistChatLog(db, entry) {
+	ensureChatLogTable(db);
+	const info = db
+		.prepare(
+			"INSERT INTO chat_log(direction, target, text, ok, status, at) VALUES (?, ?, ?, ?, ?, ?)",
+		)
+		.run(
+			entry.direction,
+			entry.target,
+			entry.text || "",
+			entry.ok === true ? 1 : 0,
+			entry.status === undefined || entry.status === null ? null : entry.status,
+			entry.at || Date.now(),
+		);
+	return info.lastInsertRowid;
+}
+
+// Default send reads the webhook env per target.
+function defaultDrainSend(row) {
+	return sendChatops(row.target, { text: row.text, channel: row.channel });
+}
+
+// Drain the memory queue with one send per row.
+// Each send is logged in memory and persisted when db is set.
+async function drainChatopsQueue(db, opts) {
+	const o = opts || {};
+	const sendFn = o.sendFn || defaultDrainSend;
+	const out = [];
+	if (db) ensureChatLogTable(db);
+	while (queue.length > 0) {
+		const row = queue.shift();
+		let sent;
+		try {
+			sent = await sendFn(row);
+		} catch (e) {
+			sent = { ok: false, status: null, error: e.message || String(e) };
+		}
+		const ok = !!sent && sent.ok === true;
+		row.status = ok ? "sent" : "failed";
+		const logged = logChatops({
+			direction: "out",
+			target: row.target,
+			text: row.text,
+			ok: ok,
+			status:
+				sent && sent.status !== undefined && sent.status !== null
+					? sent.status
+					: null,
+		});
+		if (db) persistChatLog(db, logged);
+		out.push({ id: row.id, ok: ok, status: logged.status });
+	}
+	return out;
+}
+
 module.exports = {
 	INBOUND_ROUTE,
 	INBOUND_SECRET_ENV,
 	ENV_KEYS,
+	CHATOPS_INTERVAL_MS,
+	CHAT_LOG_DDL,
 	getWebhookUrl,
 	isOutboundConfigured,
 	buildPayload,
@@ -217,4 +292,7 @@ module.exports = {
 	clearLog,
 	planInboundRoute,
 	handleInbound,
+	ensureChatLogTable,
+	persistChatLog,
+	drainChatopsQueue,
 };

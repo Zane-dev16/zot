@@ -10,6 +10,7 @@ const { createHandler } = require("./api");
 const events = require("./events");
 const stream = require("./stream");
 const runner = require("./runner");
+const chatops = require("./chatops");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = "127.0.0.1";
@@ -103,6 +104,11 @@ function boot(opts = {}) {
 	const startedAt = Date.now();
 	reconcile(db, bootId, startedAt);
 	runner.ensureModelColumn(db);
+	try {
+		chatops.ensureChatLogTable(db);
+	} catch {
+		// Chat table is best effort at boot. Tick ensures it again.
+	}
 	const log = events.createLog();
 	const server = createServer(db, bootId, startedAt);
 	const streamHandle = stream.attach(server, { db, log });
@@ -123,6 +129,10 @@ function boot(opts = {}) {
 		}
 	}, runner.SCHEDULER_INTERVAL_MS);
 	schedTick.unref();
+	const chatTick = setInterval(() => {
+		chatops.drainChatopsQueue(db, {}).catch(() => {});
+	}, chatops.CHATOPS_INTERVAL_MS);
+	chatTick.unref();
 	const beat = setInterval(() => {
 		db.prepare("UPDATE daemon SET heartbeat_at = ? WHERE id = ?").run(
 			Date.now(),
@@ -142,6 +152,7 @@ function boot(opts = {}) {
 		clearInterval(beat);
 		clearInterval(runTick);
 		clearInterval(schedTick);
+		clearInterval(chatTick);
 		streamHandle.close();
 		server.close(() => {
 			db.close();

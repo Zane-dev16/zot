@@ -86,3 +86,12 @@ CREATE TABLE IF NOT EXISTS scheduler_run(
   cron TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_scheduler_run_job ON scheduler_run(job_id, fired_at);
+CREATE TABLE IF NOT EXISTS chat_log(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  direction TEXT NOT NULL,
+  target TEXT NOT NULL,
+  text TEXT NOT NULL DEFAULT '',
+  ok INTEGER NOT NULL DEFAULT 0,
+  status INTEGER,
+  at INTEGER NOT NULL
+);
