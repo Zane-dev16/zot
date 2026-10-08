@@ -4,4 +4,6 @@
 
 Pair backend is green on local port 18787 as of 2026-10-06. Confirm returned 201. Runs plus voice plus memory returned 200 with token. Log lives at tmp zot land proof log. See root BLOCKED.md for the current UI proof state. The phone visual check above is the only open human gate.
 
+- Upload one real device token then resend push for Apple 200. Store holds zero tokens as of 2026-10-08. Probe got Apple 400 with synthetic token. Owner operator. Date 2026-10-08.
+
 Add items here when only a human can unblock. Keep one line per item with owner and date.
