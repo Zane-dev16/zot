@@ -572,3 +572,37 @@ Impact follows.
 Pair UI is green on the simulator. Measured via pass line in same log.
 Backend plus Send plus chat all pass in one run. Measured via same pass line.
 Next step is this land commit with no push. This is ordered by the task grant.
+
+## Device auto 2026-10-11
+
+Goal was hands free pair plus token upload on iPhone per the run grant in this session.
+Scope was all remote commands over ssh as irellzane at loki measured in /tmp/zot-device-auto.log.
+Outputs stayed under local plus remote /tmp measured in /tmp/zot-device-auto.log.
+Fresh state held three identities measured over ssh in this session.
+Keychain query returned user interaction is not allowed measured over ssh in this session.
+iPhone 5A3DC1B6 was unavailable and only the watch was available measured over ssh in this session.
+Built Zot app was unsigned measured via codesign over ssh in this session.
+Token store held zero rows measured via sqlite over ssh in this session.
+Live Apple sandbox returned 400 on a synthetic probe measured over ssh in this session.
+Gate was runner not ready inferred from device plus signature plus keychain in this session.
+Install and xcodebuild test were skipped per the only if ready condition measured in /tmp/zot-device-auto.log.
+No passwords were tried and no unlock commands were issued measured in /tmp/zot-device-auto.log.
+Phone owner gets no change and no new prompt inferred from the skipped install in this session.
+Next engineer inherits the gate log plus three unblockers measured in /tmp/zot-device-auto.log.
+Unblockers are device available plus signed runner plus keychain writable at install time inferred from the gate in this session.
+prove.sh returns ALL PASS locally. Ran on 2026-10-11.
+
+**Principles.**
+Principle Prove It Works shaped the gate in this session. It changed the run to fresh ssh checks instead of reusing the prior log measured in /tmp/zot-device-auto.log.
+Principle Fix Root Causes shaped the skip in this session. It changed the next step to rechecking device plus signature plus keychain instead of retrying the exit 65 build measured in /tmp/zot-device-auto.log.
+Principle Sequence Verifiable Units shaped the order in this session. It changed the run to stop at the readiness gate instead of testing on a broken base measured in /tmp/zot-device-auto.log.
+
+Evidence follows per /tmp/zot-device-auto.log.
+
+```text
+TEST: SKIP runner not ready device unavailable app unsigned keychain locked no xcodebuild test run
+TOKENS: count=0 measured via sqlite push_token on loki no rise after gate
+PING: live synthetic probe Apple 400 configured=true topic=com.zanishlabs.zot mode=development no real token sent
+```
+
+Report is paired pinged no measured in /tmp/zot-device-auto.log.

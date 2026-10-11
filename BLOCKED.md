@@ -6,4 +6,6 @@ Pair backend is green on local port 18787 as of 2026-10-06. Confirm returned 201
 
 - Upload one real device token then resend push for Apple 200. Store holds zero tokens as of 2026-10-08. Probe got Apple 400 with synthetic token. Owner operator. Date 2026-10-08.
 
+- Device auto gate 2026-10-11. Runner not ready. iPhone 5A3DC1B6 unavailable. App unsigned. Keychain locked. Install plus xcodebuild test skipped. Token store still zero. Synthetic probe still Apple 400. Log lives at tmp zot device auto log. Owner operator. Date 2026-10-11.
+
 Add items here when only a human can unblock. Keep one line per item with owner and date.
