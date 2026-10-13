@@ -77,3 +77,14 @@ node scripts/verify-push-live.js
 Expected output ends with register and bulk PASS lines plus ALL PASS push live with stub key.
 
 **Live probe.** Measured on 2026-10-08 via loki sandbox with live true. Store held zero tokens measured via listTokens. Synthetic 64hex probe returned Apple 400 measured via sendPush. Worker returned zero total with skip no tokens measured via notifyRunDone. Log lives at /tmp/zot-push-ping.log. Next step is pair phone then upload token then resend for 200.
+
+## Live ping 2026-10-13
+
+Store held zero push tokens measured via sqlite push_token count over ssh.
+Synthetic probe returned Apple 400 measured via sendPush output over ssh.
+Sandbox stayed reachable measured via status 400 over ssh.
+Worker returned zero total with skip no tokens measured via notifyRunDone output over ssh.
+Config used team 36V92GAJBT with topic com.zanishlabs.zot in development mode measured via push config output over ssh.
+Key loaded yes with 257 bytes measured via push key output over ssh.
+Log lives at tmp zot keep pair log measured via local file copy.
+Next step is upload one real device token then resend for Apple 200 measured via push token count 0 over ssh.

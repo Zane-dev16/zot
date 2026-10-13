@@ -606,3 +606,39 @@ PING: live synthetic probe Apple 400 configured=true topic=com.zanishlabs.zot mo
 ```
 
 Report is paired pinged no measured in /tmp/zot-device-auto.log.
+
+## Live pair 2026-10-13
+
+Pair plus token plus live ping succeeded over ssh measured via pair log in tmp.
+Device stayed available paired measured via devicectl output over ssh.
+New build stayed red with exit 65 measured via BUILD EXIT line in the log.
+New install stayed red with exit 1 measured via INSTALL EXIT line in the log.
+Old app launched with exit 0 measured via devicectl launch output over ssh.
+API pair returned 201 with label live-iphone measured via confirm output over ssh.
+Token count rose from 0 to 1 measured via sqlite output over ssh.
+Run completed to done with echo model measured via runs GET output over ssh.
+Live sandbox ping returned Apple 400 measured via sendPush output over ssh.
+Worker fanned out to 0 with skip no tokens measured via notifyRunDone output over ssh.
+Log lives at tmp zot keep pair log measured via local file copy.
+prove.sh returns ALL PASS locally. Ran on 2026-10-13.
+
+Evidence in this list.
+
+```text
+LAUNCH=Launched application with com.zanishlabs.zot bundle identifier measured via devicectl process launch over ssh
+API_CONFIRM_HTTP=201 measured via pair confirm output over ssh
+API_CONFIRM_LABEL=live-iphone measured via pair confirm output over ssh
+TOKENS_BEFORE=0 measured via sqlite device_session count over ssh
+TOKENS_AFTER=1 measured via sqlite device_session count over ssh
+PING_STATUS=400 measured via sendPush output over ssh
+PING_ERROR=apns status 400 measured via sendPush output over ssh
+RUN_GET_STATE=done measured via runs GET output over ssh
+WORKER_SKIPPED=no-tokens measured via notifyRunDone output over ssh
+```
+
+Report follows.
+Pair delivered yes measured via API 201 over ssh.
+Push delivered no measured via Apple 400 on synthetic token over ssh.
+XCUITest skipped because new build stayed unsigned measured via INSTALL EXIT 1 in the log.
+Synthetic token used for ping because store held zero tokens measured via push token count 0 over ssh.
+Real device token upload remains for Apple 200 measured via push token count 0 over ssh.
