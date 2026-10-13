@@ -642,3 +642,64 @@ Push delivered no measured via Apple 400 on synthetic token over ssh.
 XCUITest skipped because new build stayed unsigned measured via INSTALL EXIT 1 in the log.
 Synthetic token used for ping because store held zero tokens measured via push token count 0 over ssh.
 Real device token upload remains for Apple 200 measured via push token count 0 over ssh.
+
+## Pair matrix 2026-10-13
+
+Matrix is green as of 2026-10-13. Measured via tmp zot pair matrix log.
+Sim run is green as of 2026-10-13. Measured via TEST SUCCEEDED in tmp zot pair matrix test log.
+Matrix log holds 30 lines and 3085 bytes. Measured via wc on that path.
+Test log holds 111 lines and 13140 bytes. Measured via wc on that path.
+Fix landed is ios ApiClient swift plus ContentView swift plus Info plist plus ZotAutoPairUITests swift. Measured via git diff stat.
+prove.sh returns ALL PASS locally. Ran on 2026-10-13.
+
+**Impact.** Phone owner gets specific pair text and fewer false Pair failed screens. Inferred from ServerError path plus green sim run.
+Next engineer inherits rerunnable logs at tmp zot pair matrix log plus tmp zot pair matrix test log. Measured via local files.
+
+**Broken.** App showed Pair failed for missing scheme and padded code and server 400 and 404 cases. Measured via prior matrix log.
+
+**Root cause.** Missing scheme threw badURL before send. Measured via code read plus matrix CLIENT NO HTTP.
+Padded code missed trim at confirm boundary. Measured via matrix mismatch plus code read.
+Server text was dropped and replaced by generic line. Measured via code read plus matrix 400 and 404 bodies.
+
+**Fix.** ApiClient owns normalizeBaseURL and ServerError and trim and message mapping. Measured via diff.
+ContentView calls normalizeBaseURL and shows ServerError message. Measured via diff.
+Info allows current LAN host. Measured via plist diff.
+Test default matches current LAN and focus retry steadies typing. Measured via test diff.
+
+**Principles.** principle fix root causes moved edits to normalize and trim and message roots. Measured via diff.
+principle boundary discipline put guards in ApiClient and kept ContentView thin. Measured via diff.
+principle laziness protocol kept one normalize function and skipped new layers. Measured via diff.
+principle prove it works used live sim run and xcresult instead of compile check. Measured via log.
+principle test behavior not implementation kept UI asserts on Send and hello run. Measured via test read.
+principle model the domain encoded failure as ServerError with message. Measured via diff.
+
+**Verification.** Live tailnet daemon stayed ready through runs. Measured via health 200.
+Sim pair flow ran on ZotTest clone. Measured via xcodebuild log.
+
+**Repro.** Failing then passing lines follow.
+
+```
+Test case 'ZotAutoPairUITests.testAutoPairAndChat()' failed on 'Clone 1 of ZotTest - ZotUITests-Runner (10618)' (39.440 seconds)
+Test case 'ZotAutoPairUITests.testAutoPairAndChat()' passed on 'Clone 1 of ZotTest - ZotUITests-Runner (31266)' (478.660 seconds)
+```
+
+**Verify.** TEST PASS. Log shows TEST SUCCEEDED. Measured via tmp zot pair matrix test log.
+
+**Report.** green yes.
+
+Evidence follows per tmp zot pair matrix log.
+
+```text
+CASE missing-scheme STATUS CLIENT-NO-HTTP BODY URL-string-guard-throws-badURL-app-shows-Pair-failed
+CASE confirm-raw-padded-spaces-newline STATUS 400 BODY {"error":"pair code mismatch"}
+CASE confirm-trimmed-code STATUS 201 BODY token plus device kind ios
+CASE unknown-route-404 STATUS 404 BODY {"error":"not found"}
+CASE confirm-expired-code STATUS 400 BODY {"error":"pair code expired"}
+```
+
+Evidence follows per tmp zot pair matrix test log.
+
+```text
+Test case 'ZotAutoPairUITests.testAutoPairAndChat()' passed on 'Clone 1 of ZotTest - ZotUITests-Runner (31266)' (478.660 seconds)
+** TEST SUCCEEDED **
+```

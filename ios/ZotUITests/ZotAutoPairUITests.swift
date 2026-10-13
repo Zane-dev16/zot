@@ -34,23 +34,26 @@ final class ZotAutoPairUITests: XCTestCase {
         XCTAssertEqual(outCode.count, 6, "pair code has 6 digits")
         return outCode
     }
+    func focusField(_ field: XCUIElement) {
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "field exists")
+        field.tap()
+        sleep(2)
+        field.tap()
+        sleep(2)
+    }
     func clearAndType(_ field: XCUIElement, _ text: String) {
         XCTAssertTrue(field.waitForExistence(timeout: 10), "field exists")
         if let cur = field.value as? String, cur == text { return }
-        field.tap()
-        sleep(1)
+        focusField(field)
         if let cur = field.value as? String, !cur.isEmpty, cur != text, cur != "6 digit code", cur != "Prompt" {
-            field.tap()
-            sleep(1)
             field.typeText(String(repeating: "\u{8}", count: cur.count))
             sleep(1)
-            field.tap()
-            sleep(1)
+            focusField(field)
         }
         field.typeText(text)
     }
     func testAutoPairAndChat() throws {
-        let server = ProcessInfo.processInfo.environment["ZOT_SERVER_URL"] ?? "http://192.168.68.50:8787"
+        let server = ProcessInfo.processInfo.environment["ZOT_SERVER_URL"] ?? "http://192.168.68.56:8787"
         app.launch()
         sleep(2)
         if app.buttons["Unpair"].waitForExistence(timeout: 5) {
@@ -64,8 +67,7 @@ final class ZotAutoPairUITests: XCTestCase {
         XCTAssertTrue(codeField.waitForExistence(timeout: 10), "code field exists")
         clearAndType(serverField, server)
         let code = try fetchPairCode(server: server)
-        codeField.tap()
-        sleep(1)
+        focusField(codeField)
         codeField.typeText(code)
         sleep(1)
         app.buttons["Pair"].tap()

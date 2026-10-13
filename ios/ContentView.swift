@@ -3,7 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var session: SessionStore
     @State private var code = ""
-    @State private var host = "http://192.168.68.50:8787"
+    @State private var host = "http://192.168.68.56:8787"
     @State private var runs: [AgentRun] = []
     @State private var errorMessage = ""
     @State private var prompt = ""
@@ -65,9 +65,7 @@ struct ContentView: View {
 
     @MainActor private func pair() async {
         errorMessage = ""
-        var h = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        while h.hasSuffix("/") { h = String(h.dropLast()) }
-        session.client.baseURL = h
+        session.client.baseURL = normalizeBaseURL(host)
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count == 6, Int(trimmed) != nil else {
             errorMessage = "Code must be 6 digits."
@@ -76,8 +74,10 @@ struct ContentView: View {
         do {
             try await session.client.confirmPair(code: trimmed, label: "iphone")
             await load()
+        } catch let e as ServerError {
+            errorMessage = e.message
         } catch {
-            errorMessage = "Pair failed. Check code and host."
+            errorMessage = error.localizedDescription
         }
     }
 

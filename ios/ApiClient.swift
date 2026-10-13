@@ -19,19 +19,37 @@ struct RunResponse: Codable {
     let run: AgentRun
 }
 
+struct ServerError: Error, LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
+}
+
+struct ErrorBody: Decodable {
+    let error: String?
+}
+
+func normalizeBaseURL(_ raw: String) -> String {
+    var b = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    while b.hasSuffix("/") {
+        b = String(b.dropLast())
+        b = b.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    if b.isEmpty { return b }
+    if !b.contains("://") { b = "http://" + b }
+    return b
+}
+
 final class ApiClient: ObservableObject {
-    @Published var baseURL = "http://192.168.68.50:8787"
+    @Published var baseURL = "http://192.168.68.56:8787"
     @Published var token: String? = Keychain.load()
     private var decoder: JSONDecoder { JSONDecoder() }
 
     private func cleanBase() -> String {
-        var b = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        while b.hasSuffix("/") { b = String(b.dropLast()) }
-        return b
+        normalizeBaseURL(baseURL)
     }
 
     private func req(_ path: String, method: String = "GET", body: Data? = nil, auth: Bool = true) throws -> URLRequest {
-        guard let url = URL(string: cleanBase() + path) else { throw URLError(.badURL) }
+        guard let url = URL(string: cleanBase() + path) else { throw ServerError(message: "Invalid host. Add http:// and check host.") }
         var r = URLRequest(url: url)
         r.httpMethod = method
         r.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -41,10 +59,20 @@ final class ApiClient: ObservableObject {
     }
 
     func confirmPair(code: String, label: String) async throws {
-        let payload = try JSONSerialization.data(withJSONObject: ["code": code, "label": label, "kind": "ios"])
+        let cleanCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        let payload = try JSONSerialization.data(withJSONObject: ["code": cleanCode, "label": label, "kind": "ios"])
         let r = try req("/api/v1/pair/confirm", method: "POST", body: payload, auth: false)
         let (data, resp) = try await URLSession.shared.data(for: r)
-        guard [200, 201].contains((resp as? HTTPURLResponse)?.statusCode ?? 0) else { throw URLError(.userAuthenticationRequired) }
+        let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        guard [200, 201].contains(status) else {
+            if let eb = try? decoder.decode(ErrorBody.self, from: data), let m = eb.error, !m.isEmpty {
+                throw ServerError(message: m)
+            }
+            if let s = String(data: data, encoding: .utf8), !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, s.count < 300 {
+                throw ServerError(message: s)
+            }
+            throw ServerError(message: "Pair failed (status \(status)). Check code and host.")
+        }
         let parsed = try decoder.decode(PairToken.self, from: data)
         await MainActor.run { token = parsed.token }
         Keychain.save(parsed.token)
