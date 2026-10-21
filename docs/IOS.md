@@ -703,3 +703,61 @@ Evidence follows per tmp zot pair matrix test log.
 Test case 'ZotAutoPairUITests.testAutoPairAndChat()' passed on 'Clone 1 of ZotTest - ZotUITests-Runner (31266)' (478.660 seconds)
 ** TEST SUCCEEDED **
 ```
+
+## Baked flavor 2026-10-21
+
+Sim baked path lands chat with Send. Measured via chatList screenshot on loki.
+Daemon rows plus screenshots plus log back the proof. Measured via tmp zot baked test log on loki.
+Baked flavor is automation only. Measured via BakedPair gate on launch args plus env.
+Normal launch ignores the baked path. Measured via code read of isBaked guard.
+SessionStore forwards nested client changes. Measured via code read of ApiClient swift.
+ATS covers current LAN plus loopback. Measured via Info plist read.
+Baked Send UI test sits beside existing helpers. Measured via parse clean of UITest file.
+Its xcodebuild run hangs in this env. Measured via two stuck builds.
+Device flavor reuses the same baked path through Run scheme args. Measured via baked log device lines.
+Device result stays guess until tried on hardware. Inferred from ssh scope plus unsigned build history.
+prove.sh returns ALL PASS locally. Ran on 2026-10-21.
+
+**Impact.** Tester launching a baked build lands on chat with Send. Measured via screenshot.
+Next engineer inherits SessionStore forwarding for any token mutation. Measured via code read.
+
+**Broken.** Pair view stayed frozen after confirm reached the daemon. Measured via baked log pid 85331.
+Server row was created while UI showed no Send. Measured via devices 1 to 2 plus frozen UI line.
+
+**Root cause.** SessionStore never forwarded nested client changes. Inferred from frozen pairView plus created server row.
+Fix moved to SessionStore init with a three line Combine forward. Measured via ApiClient swift diff.
+
+**Fix.** SessionStore forwards client objectWillChange in init. Measured via ApiClient swift diff.
+ATS hosts for current LAN plus loopback were added to Info plist. Measured via plist diff.
+Baked Send UI test was added beside existing helpers. Measured via UITest diff.
+Device flavor is documented as Run scheme args with team plus profile note. Measured via baked log device lines.
+
+**Principles.** principle prove it works forced daemon rows plus screenshots plus log instead of trusting BUILD SUCCEEDED. Measured via baked log.
+principle fix root causes put the fix at SessionStore where all callers route. Measured via diff.
+principle boundary discipline kept the guard in BakedPair plus SessionStore and the ATS hosts at the plist edge. Measured via diff.
+principle laziness protocol chose the three line forwarding init over restructuring views. Measured via diff.
+principle test behavior not implementation kept UI asserts on Send plus hello baked. Measured via test read.
+
+**Verification.** Daemon health stayed ready through the baked run. Measured via baked log health line.
+Sim baked launch reached chatList with Send. Measured via screenshot post fix.
+API Send returned 201 with hello baked run. Measured via baked log SEND line.
+Runs list contains hello baked. Measured via baked log RUNS LIST line.
+
+**Verify.** Baked log shows chatList with Send screenshot. Measured via tmp zot baked test log on loki.
+UITest run is unverified in this env. Measured via two stuck builds.
+
+**Report.** green yes for sim baked proof. Measured via daemon rows plus screenshots plus log.
+Device flavor stays guess. Inferred from no hardware run in this env.
+
+Evidence follows per tmp zot baked test log on loki.
+
+```text
+LAUNCH pid=85331 server=http://192.168.68.67:8799 code=774364 result=confirm-reached-daemon devices=1 to 2
+SEND status=201 body=hello baked run created
+RUNS_LIST status=200 contains_hello=True
+ROWS_AFTER devices=4 runs=1 titles=hello baked
+TOKEN status=201 len=64
+LAUNCH pid=88129 server=http://192.168.68.67:8799 result=chatList-with-Send-screenshot
+BUILD app-sim-ZotTest SUCCEEDED post-fix
+UITEST testBakedSendHello parse-clean run-hangs-in-env
+```

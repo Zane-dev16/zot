@@ -11,6 +11,7 @@
 		000000000000000000000003 /* ApiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000011 /* ApiClient.swift */; };
 		000000000000000000000004 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000012 /* ContentView.swift */; };
 		000000000000000000000005 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000013 /* Keychain.swift */; };
+		000000000000000000000006 /* BakedPair.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000016 /* BakedPair.swift */; };
 		A10000000000000000000003 /* ZotAutoPairUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* ZotAutoPairUITests.swift */; };
 /* End PBXBuildFile section */
 
@@ -19,6 +20,7 @@
 		000000000000000000000011 /* ApiClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiClient.swift; sourceTree = "<group>"; };
 		000000000000000000000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		000000000000000000000013 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
+		000000000000000000000016 /* BakedPair.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BakedPair.swift; sourceTree = "<group>"; };
 		000000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		000000000000000000000014 /* Zot.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Zot.entitlements; sourceTree = "<group>"; };
 		A10000000000000000000001 /* ZotAutoPairUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZotAutoPairUITests.swift; sourceTree = "<group>"; };
@@ -60,6 +62,7 @@
 				000000000000000000000011 /* ApiClient.swift */,
 				000000000000000000000012 /* ContentView.swift */,
 				000000000000000000000013 /* Keychain.swift */,
+				000000000000000000000016 /* BakedPair.swift */,
 				000000000000000000000014 /* Zot.entitlements */,
 				000000000000000000000015 /* Info.plist */,
 			);
@@ -213,6 +216,7 @@
 				000000000000000000000003 /* ApiClient.swift in Sources */,
 				000000000000000000000004 /* ContentView.swift in Sources */,
 				000000000000000000000005 /* Keychain.swift in Sources */,
+				000000000000000000000006 /* BakedPair.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

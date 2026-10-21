@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 struct AgentRun: Codable, Identifiable {
     let id: String
@@ -107,5 +108,9 @@ final class ApiClient: ObservableObject {
 
 final class SessionStore: ObservableObject {
     @Published var client = ApiClient()
+    private var bag = Set<AnyCancellable>()
+    init() {
+        client.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &bag)
+    }
     var paired: Bool { client.token != nil }
 }

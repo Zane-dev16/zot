@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var runs: [AgentRun] = []
     @State private var errorMessage = ""
     @State private var prompt = ""
+    @State private var bakedDidRun = false // Automation only. Baked flavor hook.
 
     var body: some View {
         if session.client.token == nil {
@@ -31,6 +32,7 @@ struct ContentView: View {
             Text("Ask the browser UI for the code. It expires in 5 minutes.")
                 .font(.footnote)
         }
+        .task { await bakedAutoPair() }
     }
 
     private var chatList: some View {
@@ -61,6 +63,16 @@ struct ContentView: View {
                 Task { await pushUp(hex) }
             }
         }
+    }
+
+    @MainActor private func bakedAutoPair() async {
+        guard BakedPair.isBaked else { return }
+        guard !bakedDidRun else { return }
+        bakedDidRun = true
+        guard let cfg = BakedPair.config() else { return }
+        host = cfg.serverURL
+        code = cfg.code
+        await pair()
     }
 
     @MainActor private func pair() async {

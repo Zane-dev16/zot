@@ -52,6 +52,24 @@ final class ZotAutoPairUITests: XCTestCase {
         }
         field.typeText(text)
     }
+    func testBakedSendHello() throws {
+        let server = ProcessInfo.processInfo.environment["ZOT_SERVER_URL"] ?? "http://192.168.68.67:8799"
+        let code = try fetchPairCode(server: server)
+        app.launchArguments = ["-ZOT_BAKED", "-ZOT_SERVER_URL", server, "-ZOT_PAIR_CODE", code]
+        app.launch()
+        XCTAssertTrue(app.buttons["Send"].waitForExistence(timeout: 60), "baked auto pair shows Send")
+        XCTAssertTrue(app.navigationBars["Zot"].waitForExistence(timeout: 10), "paired state shows Zot title")
+        let promptField = app.textFields["Prompt"]
+        XCTAssertTrue(promptField.waitForExistence(timeout: 10), "prompt field exists")
+        promptField.tap()
+        sleep(2)
+        promptField.typeText("hello baked")
+        sleep(1)
+        app.buttons["Send"].tap()
+        sleep(4)
+        let hello = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "hello baked")).firstMatch
+        XCTAssertTrue(hello.waitForExistence(timeout: 60), "chat shows hello baked")
+    }
     func testAutoPairAndChat() throws {
         let server = ProcessInfo.processInfo.environment["ZOT_SERVER_URL"] ?? "http://192.168.68.56:8787"
         app.launch()
