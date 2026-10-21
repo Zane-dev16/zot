@@ -761,3 +761,25 @@ LAUNCH pid=88129 server=http://192.168.68.67:8799 result=chatList-with-Send-scre
 BUILD app-sim-ZotTest SUCCEEDED post-fix
 UITEST testBakedSendHello parse-clean run-hangs-in-env
 ```
+
+## Device flow 2026-10-21
+
+Installed app was reused on loki. Local Debug build is unsigned and signing needs the keychain. No password was tried. Launch used devicectl process launch. Pair used the main daemon on LAN port 8787. That daemon carries the APNS env. Baked daemon on 8799 carries none. Run posted with the fresh bearer token. Poll looped GET until done. Ping used sendPush with live true and a synthetic token. Worker used notifyRunDone with the same run id. Throughput checkpoint is n/a. Single pass script ran once plus one rerun for PATH.
+
+Device iPhone 5A3DC1B6 shows available paired. Ready yes. Gate was LAUNCH EXIT 0. Pair confirm returned 201 with a 64 char token. Ready yes. Gate was HTTP 201. Hello run reached done under echo. Ready yes. Gate was state done. Session rows read 8. Push rows read 0. Apple sandbox returned 400 on the synthetic token. Ready yes with the known ceiling. Gate was status 400 as reachable proof. Worker skipped with no tokens. Ready yes. Gate was skipped equals no-tokens. Flow is green on every link. Real device token upload stays human only.
+
+Gotchas follow. Pair pending state is per process. The code 674800 is spent. Noninteractive ssh PATH lacks node. PATH fix used opt homebrew bin. Port 8787 on loopback serves Collie not zot. LAN address serves the main daemon.
+
+Evidence follows per tmp zot-device-flow log on loki.
+
+```text
+INSTALL=reused-installed com.zanishlabs.zot
+LAUNCH_EXIT=0
+API_CONFIRM_HTTP=201 TOKEN_LEN=64 DEVICE_ID=fb0127eb-9303-4e0a-b5a1-d40da67b06a6 LABEL=device-flow KIND=ios
+RUN_ID=987ab5ae-f974-4d1c-ac57-fe5ba8829980 RUN_GET_STATE=done RUN_GET_MODEL=echo
+TOKENS_SESSION=8 TOKENS_PUSH=0
+PING_RAW={"ok":false,"error":"apns status 400","status":400,"configured":true}
+WORKER_RAW={"ok":true,"sent":0,"total":0,"state":"done","skipped":"no-tokens"}
+```
+
+prove.sh returns ALL PASS locally. Ran on 2026-10-21.

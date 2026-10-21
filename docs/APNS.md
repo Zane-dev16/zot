@@ -88,3 +88,15 @@ Config used team 36V92GAJBT with topic com.zanishlabs.zot in development mode me
 Key loaded yes with 257 bytes measured via push key output over ssh.
 Log lives at tmp zot keep pair log measured via local file copy.
 Next step is upload one real device token then resend for Apple 200 measured via push token count 0 over ssh.
+
+## Device flow ping 2026-10-21
+
+Store held zero push tokens. Synthetic probe returned Apple 400. Sandbox stayed reachable. Worker returned zero total with skip no tokens. Config came from the main daemon env. No real token was sent. Next step is upload one real device token then resend for Apple 200.
+
+Evidence follows per tmp zot-device-flow log on loki.
+
+```text
+TOKENS_PUSH=0
+PING_RAW={"ok":false,"error":"apns status 400","status":400,"configured":true}
+WORKER_RAW={"ok":true,"sent":0,"total":0,"state":"done","skipped":"no-tokens"}
+```
