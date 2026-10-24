@@ -6,7 +6,7 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 
-const PORT = 18921;
+const PORT = Number(process.env.PORT || 18921);
 
 function req(port, method, urlPath, body, token) {
 	return new Promise((resolve, reject) => {
