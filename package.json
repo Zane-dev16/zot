@@ -1,15 +1,16 @@
 {
-  "name": "zot",
-  "version": "0.0.1",
-  "private": true,
-  "type": "commonjs",
-  "scripts": {
-    "start": "node src/daemon2.js",
-    "health": "curl -sf http://127.0.0.1:8787/healthz",
-    "daemon2": "node src/daemon2.js",
-    "server2": "node src/server2.js",
-    "zot-run": "scripts/zot-run.sh",
-    "migrate": "node src/db.js",
-    "eval": "node scripts/eval.js"
-  }
+	"name": "zot",
+	"version": "0.0.1",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"start": "node src/daemon2.js",
+		"health": "curl -sf http://127.0.0.1:8787/healthz",
+		"daemon2": "node src/daemon2.js",
+		"server2": "node src/server2.js",
+		"zot-run": "scripts/zot-run.sh",
+		"migrate": "node src/db.js",
+		"eval": "node scripts/eval.js",
+		"verify:client": "node scripts/verify-client-contract.js"
+	}
 }
