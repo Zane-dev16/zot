@@ -1,0 +1,30 @@
+{
+  "scopeDir": "/root/zot",
+  "createdAt": "2026-10-24T15:44:45.019Z",
+  "agents": [
+    "head",
+    "builder",
+    "verifier",
+    "reviewer",
+    "planner",
+    "docs-updater",
+    "evaluator"
+  ],
+  "flow": {
+    "roles": [
+      "builder",
+      "verifier",
+      "reviewer",
+      "planner",
+      "docs-updater",
+      "evaluator"
+    ],
+    "optional": [
+      "planner",
+      "docs-updater",
+      "evaluator"
+    ],
+    "agreedAt": "2026-10-24T15:44:45.019Z"
+  },
+  "mode": "on"
+}
