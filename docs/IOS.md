@@ -49,7 +49,7 @@ Keychain. Service is zot token. Account is device token. Load runs at launch. Sa
 
 Date: 2026-11-03. Host: Linux build host. No Xcode, no simulator, no device.
 
-`rn/` is the React Native client and the primary path. `ios/` is still in tree and still builds, and it is being retired. The plan archives it in T7 after human gates G1 to G3 pass. `.pi/factory/plan/rn-migration.md` owns the plan, the seams S1 to S7, the tickets T0 to T7, and the gates G1 to G4. This section records what exists, how to run it, and what is still human only. It does not repeat the plan.
+`rn/` is the React Native client and the primary path. `ios/` is still in tree and it is being retired; its last simulator build plus install proof is 2026-10-01. The plan archives it in T7 after human gates G1 to G3 pass. `.pi/factory/plan/rn-migration.md` owns the plan, the seams S1 to S7, the tickets T0 to T7, and the gates G1 to G4. This section records what exists, how to run it, and what is still human only. It does not repeat the plan.
 
 ### Architecture
 
@@ -63,27 +63,30 @@ rn/src/screens/RunsScreen.tsx owns the run list plus composer plus stream status
 rn/src/api/client.ts owns pair confirm plus list runs plus create run
 rn/src/api/tokenStoreKeychain.ts owns the Keychain token store
 rn/src/api/stream.ts owns the socket plus reconnect plus replay plus watchdog
-rn/src/api/cursorStoreAsyncStorage.ts owns the since cursor
+rn/src/api/cursorStoreAsyncStorage.ts owns the since cursor, keyed per host
+rn/src/api/hostStoreAsyncStorage.ts owns the paired host in AsyncStorage
 rn/src/api/pushTokens.ts owns token normalize plus upload plus foreground refresh
 rn/src/api/baked.ts plus bakedNative.ts own the baked pair hook plus launch args
 rn/src/api/zotNative.ts owns the NativeModules.ZotNative bridge
 ```
 
-Session controller. It ports the behavior of `ios/ApiClient.swift` plus `ios/ContentView.swift` with no React imports, so it runs headless. It holds token, host, runs, error line, busy flag, and stream status. Hydrate reads the keychain once at launch.
+Session controller. It ports the behavior of `ios/ApiClient.swift` plus `ios/ContentView.swift` with no React imports, so it runs headless. It holds token, host, runs, error line, busy flag, and stream status. Hydrate reads the keychain once at launch, and `App.tsx` renders nothing until that hydrate finishes, so launch no longer flashes the pair screen. The derived 40 character run title slices by code points rather than UTF-16 units, so an emoji prompt produces the same title as Swift's `String.prefix(40)`.
 
 Screens. App picks PairScreen while the token is empty and RunsScreen after a pair. RunsScreen lists runs, posts a title plus prompt, refreshes, and shows `live` or `reconnecting`.
 
-Stores. The token lives in Keychain with the same identifiers as the Swift client, service `zot-token` and account `device-token`. The stream replay cursor lives in AsyncStorage. No token goes to AsyncStorage and no token goes to logs.
+Stores. The token lives in Keychain with the same identifiers as the Swift client, service `zot-token` and account `device-token`. The paired host is persisted in AsyncStorage beside it, host only and never the token, so relaunch reconnects where the user paired instead of the hard-coded default. The stream replay cursor is AsyncStorage too, now keyed per host as `zot.since.<host-slug>`, so switching daemons starts from that host's own cursor instead of reusing a cursor that means nothing to it. No token goes to AsyncStorage and no token goes to logs.
 
-Stream. The client connects to `/api/v1/stream` with token plus since, replays from the stored cursor, reconnects with backoff from 1s to 10s, and runs a stale socket watchdog at the server heartbeat of 15s. Live run state events update the list. Polling stays as the fallback, so the list still refreshes when the stream is down. That matches the Swift client poll behavior and the browser contract in `web/app.js`.
+Stream. The client connects to `/api/v1/stream` with token plus since, replays from the stored cursor, reconnects with backoff from 1s to 10s, and runs a stale socket watchdog at 2x the 15s server heartbeat, so 30s (`rn/src/api/stream.ts`). Live run state events update the list, and a `run.created` for an id the list has not seen appends a row, so a run created by the scheduler or the browser appears while the socket is live; other events for unknown ids are dropped. Polling stays as the fallback, so the list still refreshes when the stream is down. That matches the Swift client poll behavior and the browser contract in `web/app.js`.
 
 ### Native seams
 
 The app target is `rn/ios/ZotRN`.
 
-Push token. `AppDelegate.swift` receives the APNs device token, hex-encodes it lowercased, stashes it in UserDefaults under `ZotPushToken`, and posts a `zotPushToken` notification. `ZotNative.swift` re-reads that stash through `getStashedPushToken`, asks for permission plus APNs registration through `requestPushRegistration`, and forwards each new token as a `zotPushToken` event. The stash exists because a token can arrive before the JS bundle finishes loading. `ZotNativeBridge.m` exports the class to JS as `NativeModules.ZotNative` through `RCT_EXTERN_MODULE`. On the JS side `zotNative.ts` resolves that module and returns null when it is absent, so jest runs without it. The JS upload path sends the lowercased hex plus platform ios to `/api/v1/push/tokens` after pair and on foreground.
+Push token. `AppDelegate.swift` receives the APNs device token, hex-encodes it lowercased, stashes it in UserDefaults under `ZotPushToken`, and posts a `zotPushToken` notification. `ZotNative.swift` re-reads that stash through `getStashedPushToken`, asks for permission plus APNs registration through `requestPushRegistration`, and forwards each new token as a `zotPushToken` event. The stash exists because a token can arrive before the JS bundle finishes loading. `ZotNativeBridge.m` exports the class to JS as `NativeModules.ZotNative` through `RCT_EXTERN_MODULE`. On the JS side `zotNative.ts` resolves that module and returns null when it is absent, so jest runs without it. The JS upload path sends the lowercased hex plus platform ios to `/api/v1/push/tokens` after pair and on foreground. A failed or rejected upload, or a rejected registration, sets the shell's one error line to `Push register failed. Pull to retry.`, the same line the Swift app showed; a denied permission stays silent. `ZotNative.swift` exports only the `ZOT_*` launch flags plus the value of a `flag value` pair and the three `ZOT_*` environment keys, not the whole process environment.
 
-Baked pair. Flags match the Swift client: `-ZOT_BAKED` for on, plus `-ZOT_SERVER_URL` and `-ZOT_PAIR_CODE`. Environment forms are `ZOT_BAKED=1`, `ZOT_SERVER_URL`, and `ZOT_PAIR_CODE`. Each value resolves in this order: `-flag value`, then `-flag=value`, then environment. A flag with no following value falls through to the next form. The hook runs at most once per app session, with the same once guard as `bakedDidRun`, and the six digit code check stays downstream in the session controller.
+Foreground push. `AppDelegate` had no `UNUserNotificationCenterDelegate`, so a push arriving while the app was open showed nothing. `bcef1b7` sets the delegate at launch and returns `[.banner, .badge, .sound]` from `willPresent`, matching `ios/ZotApp.swift`. Alert presentation in the foreground is now implemented but device-unproven, so G3.5 checks it.
+
+Baked pair. Flags match the Swift client: `-ZOT_BAKED` for on, plus `-ZOT_SERVER_URL` and `-ZOT_PAIR_CODE`. Environment forms are `ZOT_BAKED=1`, `ZOT_SERVER_URL`, and `ZOT_PAIR_CODE`. Each value resolves in this order: `-flag value`, then `-flag=value`, then environment. A flag with no following value falls through to the next form only when the flag is the last argv element; otherwise the next argument is taken as its value, which is exactly what `ios/BakedPair.swift` does. The native module passes only the `ZOT_*` flags plus the value of a `flag value` pair, in original order, so the precedence sees the same neighbours. The hook runs at most once per app session, with the same once guard as `bakedDidRun`, and the six digit code check stays downstream in the session controller.
 
 ### Bundle identity
 
@@ -96,15 +99,15 @@ Entitlement aps-environment development at rn/ios/ZotRN/Zot.entitlements
 CODE_SIGN_ENTITLEMENTS points at it in Debug and Release
 ```
 
-ATS. `rn/ios/ZotRN/Info.plist` carries the same LAN exception domains as `ios/Info.plist`: 192.168.68.50, 192.168.68.56, 192.168.68.67, 127.0.0.1, and localhost. Arbitrary loads stay false and local networking stays true. This keeps plain http LAN pairing working.
+ATS. What actually permits plain http LAN pairing is `NSAllowsLocalNetworking = true` in `rn/ios/ZotRN/Info.plist`. Apple documents that IP addresses cannot be listed as `NSExceptionDomains`, so the five exception entries there (192.168.68.50, 192.168.68.56, 192.168.68.67, 127.0.0.1, localhost) grant nothing: they are inert parity with `ios/Info.plist`, kept deliberately. Arbitrary loads stay false. Two caveats. The deployment target is iOS 17.0 and there is a credible report of changed IP-based ATS behavior on 17, so G3 must prove plain-http pairing at a `192.168.68.x` address on a 17.x device. `NSLocalNetworkUsageDescription` is absent, and iOS 14 and later still prompts for LAN TCP with a default string; the Swift app has the same omission.
 
 Static proof. There is no Xcode on the Linux host, so `rn/__tests__/iosConfig.test.ts` reads the plist, the entitlements file, and the pbxproj as text and asserts the values above. That is the only automated protection for the native config on this host.
 
-Pair once after install. The bundle id change means a pair token keychained by a previous install does not carry over to the RN app. Pair again after install, then let the push token upload run. Unpair deletes the keychain item if an old entry is in the way.
+Bundle id and reinstall. The bundle id does not change. `rn/ios` uses `com.zanishlabs.zot`, the same id as the Swift app, so installing the RN app is an update, not a second app: the two cannot coexist on one device and cannot be A/B tested. Same bundle id, same team, and the same keychain service plus account (`zot-token` plus `device-token`, default access group, no `accessGroup` option) mean the Swift app's pair token is readable by the RN app after the update, so there is nothing to migrate. One condition: the RN build must be signed with the explicit App ID profile for `com.zanishlabs.zot`, not the wildcard `36V92GAJBT.*`, because the wildcard changes the default keychain access group and the item then fails to load silently. The device check for this is G3. One consequence to plan for: after the replacement the old APNs token in the daemon's table goes stale, Apple answers 400 or 410 for it, so G3 must assert against the newest token.
 
 ### Stream and the daemon frame fix
 
-`src/stream.js` encodes outbound text frames by hand. A frame of 126 bytes or more uses the RFC 6455 extended 16-bit length header, which is 2 marker bytes plus a 2-byte length field. The encoder allocated 3 bytes and wrote the length at offset 2, so any frame that large threw `RangeError [ERR_OUT_OF_RANGE]`. A `run.token` event measures about 131 bytes, so this was easy to hit. Two failures came from it.
+`src/stream.js` encodes outbound text frames by hand. A frame of 126 to 65535 bytes uses the RFC 6455 extended 16-bit length header, 2 marker bytes plus a 2-byte length field. A frame of 65536 bytes or more uses the 64-bit header, 2 marker bytes plus an 8-byte big-endian length. The 16-bit branch allocated 3 bytes where 4 are needed, so any frame in that range threw `RangeError [ERR_OUT_OF_RANGE]`. A `run.token` event measures about 131 bytes, so this was easy to hit. Two failures came from it.
 
 Replay hard crash. A client connecting with `since=0` made `onUpgrade` re-encode a recorded 274-byte `run.token` and the daemon died with an uncaught RangeError. Exit code 1.
 
@@ -112,7 +115,7 @@ Broadcast silent drop. On a live socket, `run.state` arrived, then `run.token` p
 
 The fix landed as `ebe24f0` and allocates the correct 4-byte header. `scripts/verify-stream-frames.js` is the regression check. Run `node scripts/verify-stream-frames.js`; it parses headers by hand, prints PASS or FAIL, and exits non-zero on failure. The RN live tracer also proves the fixed path over a real socket with a completed run.
 
-Known and not fixed. The branch for payloads of 65536 bytes or more still allocates 9 bytes where RFC 6455 wants 10, so it would overwrite the 127 marker. That path needs a payload above 64 KiB and is recorded in `BLOCKED.md`.
+64-bit branch, fixed at `6d011a1`. It allocated 9 bytes where RFC 6455 wants 10 and wrote the 8-byte length at offset 1, so the `0x7F` marker became the length's most significant byte. Nothing threw. A payload of 65536 bytes or more went out as a zero-length text frame followed by the rest of the length field, the client desynced, and it closed at 1006. That path was reachable because `POST /api/v1/jobs` takes an unbounded name, so a scheduler tick could publish a `run.created` with a 70 KiB title. `scripts/verify-stream-frames.js` now covers 65536 and 70000 bodies and asserts the exact `81 7f` plus 8-byte big-endian length, and it passes on this tree.
 
 ### Running on Linux
 
@@ -125,7 +128,7 @@ node scripts/verify-live.mjs
 node scripts/verify-stream-live.mjs
 ```
 
-The live tracers boot their own daemon on an isolated port and database, then kill only the PID they started. `verify-live.mjs` covers pair, persist, list, create, and unpair. `verify-stream-live.mjs` covers stream live, reconnect with the saved cursor, replay from zero, the 15s heartbeat, a bad token rejection, and a completed run over the socket. Override the port when the default collides, as in `PORT=18787 node scripts/verify-stream-live.mjs`. Do not kill node by name.
+The live tracers boot their own daemon on an isolated port and database, then kill only the PID they started. `verify-live.mjs` covers pair, persist, list, create, and unpair. `verify-stream-live.mjs` covers stream live, reconnect with the saved cursor, replay from zero, the 15s heartbeat, a bad token rejection, and a completed run over the socket. Override the port when the default collides, as in `PORT=18787 node scripts/verify-stream-live.mjs`. Do not kill node by name. For the whole local gate, run `bash scripts/prove.sh` from the repo root; it adds the daemon auth plus file checks and runs the same `rn/` checks when `rn/node_modules` exists.
 
 To drive a daemon by hand, follow the isolated boot pattern in `.pi/skills/verify-zot/SKILL.md`: set `PORT` plus `ZOT_DB` per run, poll `/healthz` for ready, and kill the saved PID only. Default port 8787 collides with a dev instance.
 
@@ -133,7 +136,7 @@ To drive a daemon by hand, follow the isolated boot pattern in `.pi/skills/verif
 
 The React Native app is device-unverified. No iOS build, no simulator install, no signed device install, and no on-device check has run for it. This host is Linux headless, with no Xcode, no simulator, and no iPhone. The Linux side of this section is jest, typecheck, lint, static config checks, and live tracers against a real daemon. No build or device claim should be read into it.
 
-Human gates stay open, in the plan numbering. G1 is `pod install` plus an `xcodebuild` simulator build plus a simulator install plus a visual check of the pair screen, and it must also confirm the legacy native module compiles, links, and resolves as `NativeModules.ZotNative`. G2 is a signed device build plus install with team 36V92GAJBT and the push capable profile, with `aps-environment` confirmed in the decoded profile. G3 is the on-device runtime set: a real APNs token reaching the `push_token` table plus an Apple 200 for a real token, LAN pairing confirmed visually, Keychain persistence across relaunch, ATS plain http pairing, and the baked pair flavor on device. Current gate state lives in `BLOCKED.md`.
+Human gates stay open, in the plan numbering. G1 is `pod install` plus an `xcodebuild` simulator build plus a simulator install plus a visual check of the pair screen, and it must also confirm the legacy native module compiles, links, and resolves as `NativeModules.ZotNative`. G2 is a signed device build plus install with team 36V92GAJBT and the push capable profile, with `aps-environment` confirmed in the decoded profile. G3 is the on-device runtime set: a real APNs token reaching the `push_token` table plus an Apple 200 for a real token, asserted against the newest token because the replaced Swift app leaves a stale one that Apple answers 400 or 410 for, LAN pairing confirmed visually, Keychain persistence across relaunch, ATS plain http pairing at a `192.168.68.x` address on a 17.x device, and the baked pair flavor on device. G3.5 is foreground push presentation: a notification arriving with the app open shows a banner. G4 is portal only: creating or refreshing the explicit App ID profile for `com.zanishlabs.zot` is a human action, per `docs/APPID.md`. Current gate state lives in `BLOCKED.md`.
 
 ### Terms
 
