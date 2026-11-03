@@ -52,10 +52,15 @@ function encodeText(str) {
 		head[1] = 126;
 		head.writeUInt16BE(len, 2);
 	} else {
-		head = Buffer.alloc(9);
+		// RFC 6455 5.2: the 64-bit extended length is an 8-byte header field, so
+		// the header is 2 marker bytes + 8 length bytes. Allocating 9 here wrote
+		// the length over the 0x7F marker, so a >= 64 KiB payload (a long
+		// scheduler job name reaches that through POST /api/v1/jobs) went out as
+		// a zero-length text frame plus 8 bytes of bogus header.
+		head = Buffer.alloc(10);
 		head[0] = 0x81;
 		head[1] = 127;
-		head.writeBigUInt64BE(BigInt(len), 1);
+		head.writeBigUInt64BE(BigInt(len), 2);
 	}
 	return Buffer.concat([head, body]);
 }

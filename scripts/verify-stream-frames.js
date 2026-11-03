@@ -1,18 +1,35 @@
 "use strict";
 // WebSocket text-frame regression check for the daemon stream (src/stream.js).
 //
-// Regression: encodeText allocated a 3-byte header for the 16-bit
-// extended-length path (RFC 6455 5.2 wants 4: 0x81, 126, then 2 length bytes).
-// Every outbound frame whose payload was 126 bytes or more threw
-// ERR_OUT_OF_RANGE, so a connected client could kill the daemon through
-// broadcast() and the replay path. A run.token event is ~131 bytes.
+// Regression 1 (fixed at ebe24f0): encodeText allocated a 3-byte header for the
+// 16-bit extended-length path (RFC 6455 5.2 wants 4: 0x81, 126, then 2 length
+// bytes). Every outbound frame whose payload was 126 bytes or more threw
+// ERR_OUT_OF_RANGE. A run.token event is ~131 bytes.
+//
+// Regression 2 (fixed here): the >= 65536 branch allocated 9 bytes and wrote
+// the 64-bit length at offset 1, overwriting the 0x7F marker. RFC 6455 5.2
+// wants a 10-byte header: 0x81, 0x7F, then 8 big-endian length bytes. It was
+// reachable, not latent: POST /api/v1/jobs accepts an unbounded name
+// (src/api.js:657-666), so one scheduler tick publishing a run.created with
+// that title (src/runner.js:244-258) put a 70 KiB payload on the wire.
+//
+// Unlike regression 1, nothing threw. The old header for a 70,116-byte body was
+// `81 00 00 00 00 00 01 11 e4` + body: the overwritten marker turned the frame
+// into a ZERO-LENGTH text frame, and the client was left with 8 bytes of
+// length field in its decode buffer to parse as the next frame's header. Both
+// paths therefore corrupted the client rather than the daemon:
+//   - LIVE/BROADCAST (src/stream.js broadcast via publish): every connected
+//     socket desynced in place. The daemon stayed healthy and the DB recorded
+//     the run, while the client silently lost the events that followed, e.g.
+//     run.token and run.done.
+//   - REPLAY (src/stream.js onUpgrade): the replayed frame itself desynced the
+//     client before its cursor could advance, so it reconnected onto the same
+//     corrupt frame forever (the shipped RN client logged 22 reconnect cycles
+//     in 6s with its cursor frozen).
+// Nothing in either path crashes the daemon; the damage is client-side.
 //
 // Headers are parsed here by hand instead of trusting decodeFrames, so an
 // encoder and decoder that agree on the same wrong layout cannot pass.
-//
-// Out of scope, reported separately: the >= 65536 branch allocates 9 bytes and
-// writes the 64-bit length at offset 1, which overwrites the 127 marker. That
-// path is not exercised here.
 
 const assert = require("node:assert");
 const path = require("node:path");
@@ -124,6 +141,37 @@ function checkTextFrame(bodyLen) {
 		// A client may see the header split across chunks.
 		assert.deepStrictEqual(decodeAll(frame.subarray(0, 2)), [], "partial header waits");
 		assert.deepStrictEqual(decodeAll(frame.subarray(0, 3)), [], "3 of 4 header bytes wait");
+	} else {
+		// The >= 64 KiB bug: this was Buffer.alloc(9) with the length written at
+		// offset 1, so the marker byte became 0 and the frame read as 0-length.
+		const lenBytes = [...frame.subarray(2, 10)];
+		const expectedLenBytes = [];
+		for (let shift = 56n; shift >= 0n; shift -= 8n) {
+			expectedLenBytes.push(Number((BigInt(bodyLen) >> shift) & 0xffn));
+		}
+		assert.deepStrictEqual(
+			[...frame.subarray(0, 2)],
+			[0x81, 0x7f],
+			`len ${bodyLen}: 64-bit header starts 0x81,0x7f (the marker was overwritten)`,
+		);
+		assert.deepStrictEqual(
+			lenBytes,
+			expectedLenBytes,
+			`len ${bodyLen}: 8-byte big-endian length at offset 2`,
+		);
+		assert.strictEqual(
+			Number(frame.readBigUInt64BE(2)),
+			bodyLen,
+			`len ${bodyLen}: 64-bit length field reads back`,
+		);
+		// The client sees exactly this on a 64 KiB body: a header split at 9 of
+		// its 10 bytes must not be mistaken for a complete frame.
+		assert.deepStrictEqual(decodeAll(frame.subarray(0, 9)), [], "9 of 10 header bytes wait");
+		assert.deepStrictEqual(
+			decodeAll(frame.subarray(0, 10)),
+			[],
+			"header with no payload waits",
+		);
 	}
 
 	assert.deepStrictEqual(decodeAll(frame), [body], `len ${bodyLen}: decodeFrames round-trips`);
@@ -147,7 +195,7 @@ function runTokenEventJSON(tokenChars) {
 }
 
 function main() {
-	const cases = [0, 125, 126, 131, 300, 65535];
+	const cases = [0, 125, 126, 131, 300, 65535, 65536, 70000];
 	for (const len of cases) checkTextFrame(len);
 	console.log(
 		"PASS encodeText/decodeFrames round-trip len " + cases.join(", ") + " with exact header bytes",
@@ -174,6 +222,47 @@ function main() {
 	);
 	assert.deepStrictEqual(decodeAll(multibyteFrame), [multibyte], "multibyte round-trips");
 	console.log("PASS 126 UTF-8 bytes from multibyte text use the 16-bit path");
+
+	// The reachable 64-bit victim: a scheduler job name is unbounded
+	// (src/api.js:657-666) and runner.publish sends run.created with that title
+	// (src/runner.js:244-258), so a 70 KiB title is one HTTP POST away. It used to
+	// go out as 81 00 <8 length bytes> + body, which every client reads as a
+	// zero-length text frame followed by 8 bytes of garbage header.
+	const hugeTitle = "j".repeat(70000);
+	const hugeJSON = JSON.stringify({
+		id: "21",
+		seq: 21,
+		type: "run.created",
+		at: 1750000000000,
+		runId: "run-4c2b7d61-9f8a-4e3d-8b1c-2f6a5d4e3c2b",
+		title: hugeTitle,
+	});
+	const hugeBytes = Buffer.byteLength(hugeJSON, "utf8");
+	assert.ok(hugeBytes > 65536, "run.created body is " + hugeBytes + " bytes, over 64 KiB");
+	const hugeFrame = stream.encodeText(hugeJSON);
+	assert.strictEqual(hugeFrame.length, hugeBytes + 10, "huge frame is body + 10-byte header");
+	assert.deepStrictEqual(
+		[...hugeFrame.subarray(0, 2)],
+		[0x81, 0x7f],
+		"huge frame header does not start 81 00 (the overwritten marker)",
+	);
+	assert.strictEqual(
+		Number(hugeFrame.readBigUInt64BE(2)),
+		hugeBytes,
+		"huge frame 64-bit length is the body byte count",
+	);
+	const hugeDecoded = decodeAll(hugeFrame);
+	assert.strictEqual(hugeDecoded.length, 1, "huge frame decodes to one message, not zero");
+	assert.strictEqual(
+		parseJSON(hugeDecoded[0], "decoded huge run.created").title.length,
+		70000,
+		"huge run.created title survives the wire intact",
+	);
+	console.log(
+		"PASS 64 KiB+ run.created (" +
+			hugeBytes +
+			" bytes) sends 81 7f + 8-byte BE length and round-trips intact",
+	);
 
 	// Realistic broadcast payload: the run.token frame that killed the daemon.
 	// A run.token event measured ~131 bytes on the wire; 11 token chars lands exactly there.

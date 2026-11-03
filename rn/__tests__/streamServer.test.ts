@@ -22,9 +22,12 @@ function loadWs(): typeof import('ws') | null {
 const ws = loadWs();
 const describeWs = ws === null ? describe.skip : describe;
 
-// id 2 deliberately exceeds 125 payload bytes: the daemon's own encoder
-// (src/stream.js encodeText, out of this lane) throws on those, so this proves
-// the client side handles long frames regardless.
+// id 2 deliberately exceeds 125 payload bytes so the replay and live frames
+// take the 16-bit extended-length path. The daemon's own encoder writes both
+// extended lengths correctly now (src/stream.js encodeText: 16-bit at ebe24f0,
+// 64-bit in this lane), but this test drives a `ws` server rather than the
+// daemon, so what it pins down is the client side: one long frame must not
+// break framing for the events around it.
 const LONG_TOKEN = 'x'.repeat(400);
 const REPLAY: StreamEvent[] = [
   { id: '1', type: 'run.state', runId: 'r1', state: 'running' },
