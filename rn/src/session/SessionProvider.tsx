@@ -23,6 +23,12 @@ import type {
 } from "../api/stream.ts";
 import { connectStream } from "../api/stream.ts";
 import { createKeychainTokenStore } from "../api/tokenStoreKeychain.ts";
+import type {
+	AppStateLike,
+	PushTokenNative,
+	PushTokenSync,
+} from "../api/pushTokens.ts";
+import { createPushTokenSync } from "../api/pushTokens.ts";
 import type { SessionController, SessionState } from "./sessionController.ts";
 import { createSessionController } from "./sessionController.ts";
 
@@ -39,6 +45,10 @@ export type SessionDeps = {
 	/** Test seam; defaults to the real stream client. */
 	connectStreamFn?: ConnectStreamFn;
 	pollMs?: number;
+	/** Test seam; defaults to the native push sync (inert without the module). */
+	pushSync?: PushTokenSync;
+	pushNative?: PushTokenNative | null;
+	appState?: AppStateLike | null;
 };
 
 export type SessionBinding = {
@@ -92,6 +102,16 @@ export function SessionProvider(
 	const host = deps.host;
 	const pollMs = deps.pollMs ?? POLL_INTERVAL_MS;
 	const connectFn = deps.connectStreamFn ?? connectStream;
+	const pushSync = useMemo(
+		() =>
+			deps.pushSync ??
+			createPushTokenSync({
+				transport,
+				native: deps.pushNative,
+				appState: deps.appState,
+			}),
+		[deps.appState, deps.pushNative, deps.pushSync, transport],
+	);
 
 	const controllerRef = useRef<SessionController | null>(null);
 	if (controllerRef.current === null) {
@@ -110,6 +130,30 @@ export function SessionProvider(
 	useEffect(() => {
 		controller.hydrate().catch(() => {});
 	}, [controller]);
+
+	// iOS asks for notification permission at launch (ios/ZotApp.swift:10-20).
+	useEffect(() => {
+		pushSync.request().catch(() => {});
+	}, [pushSync]);
+
+	// ContentView uploads the stashed hex after pairing/loading once a token is
+	// in hand (ios/ContentView.swift:99-101).
+	useEffect(() => {
+		if (token === null) return;
+		pushSync
+			.sync({ host: controller.getState().host, authToken: token })
+			.catch(() => {});
+	}, [controller, pushSync, token]);
+
+	// Re-upload on every foreground and on every native token event.
+	useEffect(
+		() =>
+			pushSync.start(() => ({
+				host: controller.getState().host,
+				authToken: controller.getState().token,
+			})),
+		[controller, pushSync],
+	);
 
 	useEffect(() => {
 		if (token === null) return;

@@ -231,6 +231,9 @@ export function createPushTokenSync(
 		},
 		sync,
 		start(getTarget: () => PushTokenTarget): () => void {
+			// Without the native module there is no APNs token to upload, so the
+			// foreground/event subscriptions would only add noise (jest hits this).
+			if (native === null) return () => {};
 			const disposers: Array<() => void> = [];
 			if (appState !== null) {
 				const subscription = appState.addEventListener("change", state => {
@@ -245,8 +248,7 @@ export function createPushTokenSync(
 					sync(getTarget()).catch(() => {});
 				});
 				disposers.push(remove);
-			}
-			return () => {
+			}			return () => {
 				for (const dispose of disposers) dispose();
 			};
 		},

@@ -3,12 +3,54 @@ import { Text } from "react-native";
 import ReactTestRenderer from "react-test-renderer";
 
 import { createMemoryTokenStore } from "../src/api/client";
+import type {
+	PushTokenResult,
+	PushTokenSync,
+	PushTokenTarget,
+} from "../src/api/pushTokens";
 import type { StreamEvent, StreamHandle } from "../src/api/stream";
 import { createMemoryCursorStore } from "../src/api/stream";
 import { SessionProvider, useSessionState } from "../src/session/SessionProvider";
 import { fakeRouterTransport, waitFor } from "../test-support/fakes";
 
 const RUN = { id: "r1", title: "hello", prompt: "say hi", state: "queued" };
+
+type FakePushSync = PushTokenSync & {
+	request: jest.Mock<Promise<boolean>, []>;
+	sync: jest.Mock<Promise<PushTokenResult>, [PushTokenTarget]>;
+	syncs: PushTokenTarget[];
+	foreground(): void;
+	stopped: boolean;
+};
+
+function fakePushSync(): FakePushSync {
+	const syncs: PushTokenTarget[] = [];
+	let readTarget: (() => PushTokenTarget) | null = null;
+	const fake: FakePushSync = {
+		syncs,
+		stopped: false,
+		request: jest.fn(async () => true),
+		sync: jest.fn(
+			async (target: PushTokenTarget): Promise<PushTokenResult> => {
+				syncs.push(target);
+				return { ok: true, status: 201 };
+			},
+		),
+		start: jest.fn((getTarget: () => PushTokenTarget) => {
+			readTarget = getTarget;
+			return () => {
+				readTarget = null;
+				fake.stopped = true;
+			};
+		}),
+		foreground() {
+			if (readTarget === null) return;
+			const target = readTarget();
+			fake.sync(target).catch(() => {});
+		},
+	};
+	return fake;
+}
 
 function daemon() {
 	return fakeRouterTransport(call => {
@@ -146,6 +188,53 @@ describe("SessionProvider", () => {
 			});
 		});
 		expect(probeText(renderer)).toBe("tok-1|stopped|done");
+	});
+
+	test("requests push authorization and uploads after hydrate", async () => {
+		const fake = daemon();
+		const connector = fakeConnector();
+		const push = fakePushSync();
+		const { renderer } = await mount({
+			tokenStore: createMemoryTokenStore("tok-1"),
+			transport: fake.transport,
+			connectStreamFn: connector.connectStreamFn,
+			pollMs: 0,
+			pushSync: push,
+		});
+
+		await waitFor(() => push.syncs.length === 1);
+		expect(push.request).toHaveBeenCalledTimes(1);
+		expect(push.syncs[0]).toEqual({
+			host: "http://192.168.68.56:8787",
+			authToken: "tok-1",
+		});
+
+		push.foreground();
+		await waitFor(() => push.syncs.length === 2);
+		expect(push.syncs[1]).toEqual(push.syncs[0]);
+
+		await ReactTestRenderer.act(async () => {
+			renderer.unmount();
+		});
+		mounted = null;
+		expect(push.stopped).toBe(true);
+	});
+
+	test("does not upload a push token without a session token", async () => {
+		const fake = daemon();
+		const push = fakePushSync();
+		await mount({
+			tokenStore: createMemoryTokenStore(),
+			transport: fake.transport,
+			connectStreamFn: fakeConnector().connectStreamFn,
+			pollMs: 0,
+			pushSync: push,
+		});
+
+		await ReactTestRenderer.act(async () => {
+			await waitFor(() => push.request.mock.calls.length === 1);
+		});
+		expect(push.syncs).toHaveLength(0);
 	});
 
 	test("does not connect without a token", async () => {
