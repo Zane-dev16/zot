@@ -1,8 +1,8 @@
 // Minimal ambient types for the two node built-ins the iOS config test reads.
-// @types/node is installed but deliberately not in tsconfig "types": pulling it
-// in program-wide makes setTimeout return NodeJS.Timeout and breaks the
-// injected clock types in stream.test.ts. Only what iosConfig.test.ts uses is
-// declared here, plus __dirname, which jest provides (CJS transform).
+// @types/node is not a dependency, and is deliberately kept out of the
+// program: pulling node's globals in would change setTimeout's type and break
+// the injected clock types in stream.test.ts. Only what iosConfig.test.ts needs
+// is declared here, plus __dirname, which jest provides (CJS transform).
 
 declare module 'node:fs' {
   const fs: {
