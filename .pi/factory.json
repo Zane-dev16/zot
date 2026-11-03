@@ -27,6 +27,7 @@
     "agreedAt": "2026-10-24T15:44:45.019Z"
   },
   "mode": "on",
+  "subagent": "factory-agent",
   "check": {
     "command": "bash scripts/prove.sh"
   }
