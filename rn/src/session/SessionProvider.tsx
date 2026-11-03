@@ -13,9 +13,13 @@ import React, {
   useSyncExternalStore,
 } from 'react';
 
-import type { TokenStore, Transport } from '../api/client.ts';
+import type { HostStore, TokenStore, Transport } from '../api/client.ts';
 import { ApiError, listRuns } from '../api/client.ts';
-import { createAsyncStorageCursorStore } from '../api/cursorStoreAsyncStorage.ts';
+import {
+  createAsyncStorageCursorStore,
+  streamCursorKey,
+} from '../api/cursorStoreAsyncStorage.ts';
+import { createAsyncStorageHostStore } from '../api/hostStoreAsyncStorage.ts';
 import type { CursorStore, StreamHandle, StreamStatus } from '../api/stream.ts';
 import { connectStream } from '../api/stream.ts';
 import { createKeychainTokenStore } from '../api/tokenStoreKeychain.ts';
@@ -37,6 +41,7 @@ export type SessionDeps = {
   tokenStore?: TokenStore;
   transport?: Transport;
   host?: string;
+  hostStore?: HostStore;
   cursorStore?: CursorStore;
   /** Test seam; defaults to the real stream client. */
   connectStreamFn?: ConnectStreamFn;
@@ -90,10 +95,11 @@ export function SessionProvider(
     () => deps.tokenStore ?? createKeychainTokenStore(),
     [deps.tokenStore],
   );
-  const cursorStore = useMemo(
-    () => deps.cursorStore ?? createAsyncStorageCursorStore(),
-    [deps.cursorStore],
+  const hostStore = useMemo(
+    () => deps.hostStore ?? createAsyncStorageHostStore(),
+    [deps.hostStore],
   );
+  const injectedCursorStore = deps.cursorStore;
   const transport = deps.transport;
   const host = deps.host;
   const pollMs = deps.pollMs ?? POLL_INTERVAL_MS;
@@ -115,6 +121,7 @@ export function SessionProvider(
       tokenStore,
       transport,
       host,
+      hostStore,
     });
   }
   const controller = controllerRef.current;
@@ -122,6 +129,17 @@ export function SessionProvider(
   const binding = useSessionStateFor(controller);
   const token = binding.state.token;
   const status = binding.state.status;
+  const currentHost = binding.state.host;
+
+  // One cursor per host (see cursorStoreAsyncStorage.ts): event ids only mean
+  // something to the daemon that issued them, so a host switch must start from
+  // that host's own cursor rather than inheriting the previous one.
+  const cursorStore = useMemo(
+    () =>
+      injectedCursorStore ??
+      createAsyncStorageCursorStore(streamCursorKey(currentHost)),
+    [currentHost, injectedCursorStore],
+  );
 
   useEffect(() => {
     controller.hydrate().catch(() => {});

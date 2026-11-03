@@ -14,6 +14,13 @@ export type TokenStore = {
   deleteToken(): Promise<void>;
 };
 
+/** The paired host, stored beside the keychain token so relaunch reuses it. */
+export type HostStore = {
+  saveHost(host: string): Promise<void>;
+  loadHost(): Promise<string | null>;
+  clearHost(): Promise<void>;
+};
+
 export type HttpResponseLike = {
   status: number;
   text(): Promise<string>;
@@ -51,6 +58,8 @@ export function normalizeBaseURL(raw: string): string {
 }
 
 export const defaultTransport: Transport = (url, init) => {
+  // SAFETY: RN and node both expose a WHATWG fetch with the (url, init) shape
+  // Transport describes; the global is simply absent from RN's lib types.
   const fetchFn = (globalThis as unknown as { fetch?: Transport }).fetch;
   if (!fetchFn) throw new ApiError('fetch is not available', 0);
   return fetchFn(url, init);

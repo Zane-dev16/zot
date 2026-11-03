@@ -1,9 +1,13 @@
-// S6 placeholder: baked pair config for automation.
+// S6: baked pair config for automation, as a seam the native adapter fills.
 // ios/BakedPair.swift reads -ZOT_BAKED / ZOT_BAKED plus -ZOT_SERVER_URL /
-// -ZOT_PAIR_CODE from launch args or environment. RN cannot read either without
-// a native module, so T5 will register that module through setBakedPairSource()
-// and nothing else has to change. Until then the source is null and the hook is
-// inert. Kept mockable so screens can prove the once-guard today.
+// -ZOT_PAIR_CODE from launch args or environment. On the RN side
+// bakedNative.ts applies the same precedence to the constants that
+// rn/ios/ZotRN/ZotNative.swift exports, and index.js:13 registers the resulting
+// source here before the first render, so App's once-guard sees it
+// synchronously. When the native module is missing (jest, or a build without
+// it) readZotLaunchInfo() returns null, no source is registered, and the hook
+// stays inert. Kept mockable so screens can prove the once-guard without a
+// device.
 
 import { normalizeBaseURL } from './client.ts';
 
@@ -23,7 +27,7 @@ export type BakedPairSource = {
 
 let source: BakedPairSource | null = null;
 
-/** T5 hook point: register the native launch-args module here. */
+/** Seam the native launch-args adapter registers through (bakedNative.ts). */
 export function setBakedPairSource(next: BakedPairSource | null): void {
   source = next;
 }

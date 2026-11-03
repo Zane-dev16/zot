@@ -107,6 +107,43 @@ test('renders the pair screen when the keychain is empty', async () => {
   expect(exists(app, 'runs-list')).toBe(false);
 });
 
+test('shows neither screen until the keychain read resolves', async () => {
+  // A slow keychain must not flash the pair screen at a paired user. Before the
+  // hydrated gate, the first frame rendered PairScreen because token was null.
+  let release: ((token: string | null) => void) | null = null;
+  const slowStore = {
+    async saveToken() {},
+    async loadToken() {
+      return await new Promise<string | null>(resolve => {
+        release = resolve;
+      });
+    },
+    async deleteToken() {},
+  };
+
+  const app = await renderApp({
+    tokenStore: slowStore,
+    transport: daemon().transport,
+    connectStreamFn: stubConnector().connectStreamFn,
+    // The stub stream never reports live, so polling would leave a timer behind.
+    pollMs: 0,
+  });
+
+  expect(release).not.toBeNull();
+  expect(exists(app, 'pair-code')).toBe(false);
+  expect(exists(app, 'runs-list')).toBe(false);
+
+  // The token was there all along: once the read lands, the list renders and
+  // the pair screen is never shown.
+  await ReactTestRenderer.act(async () => {
+    (release as unknown as (token: string | null) => void)('tok-1');
+    await Promise.resolve();
+  });
+  await flush();
+  expect(exists(app, 'runs-list')).toBe(true);
+  expect(exists(app, 'pair-code')).toBe(false);
+});
+
 test('pairs, lists runs, sends a prompt and unpairs', async () => {
   const fake = daemon();
   const store = createMemoryTokenStore();

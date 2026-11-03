@@ -388,13 +388,75 @@ describe('applyRunEvent (web/app.js:190-235)', () => {
     ).toBe(base);
   });
 
-  test('ignores events for runs the list does not know yet', () => {
+  test('a run.created for an unknown run adds it to the list (web parity)', () => {
+    // src/runner.js:244-258 publishes exactly this for scheduler-fired runs; the
+    // phone stops polling while live, so dropping it hid the run entirely.
+    const added = applyRunEvent(base, {
+      id: '8',
+      type: 'run.created',
+      runId: 'r-missing',
+      title: 'nightly job',
+      state: 'queued',
+    });
+    expect(added).toHaveLength(base.length + 1);
+    expect(added[2]).toEqual({
+      id: 'r-missing',
+      title: 'nightly job',
+      prompt: '',
+      state: 'queued',
+    });
+    // The existing rows are untouched.
+    expect(added[0]).toBe(base[0]);
+    expect(added[1]).toBe(base[1]);
+  });
+
+  test('a replayed run.created does not duplicate the row it added', () => {
+    const once = applyRunEvent(base, {
+      id: '8',
+      type: 'run.created',
+      runId: 'r-missing',
+      title: 'nightly job',
+    });
+    const twice = applyRunEvent(once, {
+      id: '8',
+      type: 'run.created',
+      runId: 'r-missing',
+      title: 'nightly job',
+    });
+    expect(twice).toHaveLength(base.length + 1);
+    expect(twice.filter(run => run.id === 'r-missing')).toHaveLength(1);
+    // Same title, same state: no re-render.
+    expect(twice).toBe(once);
+  });
+
+  test('a run.created without a title falls back to the run id', () => {
+    const added = applyRunEvent([], {
+      id: '9',
+      type: 'run.created',
+      runId: 'r-bare',
+    });
+    expect(added).toEqual([
+      { id: 'r-bare', title: 'r-bare', prompt: '', state: '' },
+    ]);
+  });
+
+  test('other events for unknown runs are still dropped', () => {
+    // Only run.created carries a title; the daemon's list refresh is the
+    // authority for anything the client has not seen created.
     expect(
       applyRunEvent(base, {
-        id: '8',
+        id: '10',
         type: 'run.done',
         runId: 'r-missing',
         state: 'done',
+      }),
+    ).toBe(base);
+    expect(
+      applyRunEvent(base, {
+        id: '11',
+        type: 'run.state',
+        runId: 'r-missing',
+        state: 'running',
       }),
     ).toBe(base);
   });

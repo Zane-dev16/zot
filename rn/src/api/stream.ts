@@ -82,6 +82,7 @@ export type StreamHandle = {
 
 type RunPatch = { title?: string; state?: string };
 
+// pi-lens-ignore: Semgrep:javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
 // ws://host/api/v1/stream?token=...&since=... (web/app.js:237-245).
 export function streamURL(
   host: string,
@@ -138,12 +139,29 @@ function eventPatch(event: StreamEvent): RunPatch | null {
     // daemon.heartbeat, run.token, tool.result: no list-visible change.
     return null;
   }
-  if (patch.title === undefined && patch.state === undefined) return null;
+  // run.created announces a run even with no title/state fields, and
+  // applyRunEvent turns that into a row (web/app.js:203-210). The other types
+  // only carry patches, so an empty patch means nothing to show.
+  if (
+    patch.title === undefined &&
+    patch.state === undefined &&
+    event.type !== 'run.created'
+  ) {
+    return null;
+  }
   return patch;
 }
 
 // Folds a stream event into the run list (web/app.js:190-235). Returns the same
 // array when nothing list-visible changed, so React can skip a re-render.
+//
+// A run.created for an id the list has never seen APPENDS a row, the way
+// web/app.js:203-210 creates a run block on demand. Scheduler-fired and
+// browser-created runs publish exactly that event (src/runner.js:244-258) and,
+// because the phone stops polling while the socket is live, folding only into
+// known ids would hide them until the next manual refresh. Every other event
+// for an unknown id is still dropped: those carry no title, and the daemon's
+// list refresh is the authority for their details.
 export function applyRunEvent(
   runs: AgentRun[],
   event: StreamEvent,
@@ -153,7 +171,18 @@ export function applyRunEvent(
   const runId = typeof event.runId === 'string' ? event.runId : null;
   if (runId === null) return runs;
   const index = runs.findIndex(run => run.id === runId);
-  if (index === -1) return runs;
+  if (index === -1) {
+    if (event.type !== 'run.created') return runs;
+    // Replays repeat the same id: one row per id, and a second run.created for
+    // a row this fold created just lands in the patch branch below.
+    const created: AgentRun = {
+      id: runId,
+      title: patch.title ?? runId,
+      prompt: typeof event.prompt === 'string' ? event.prompt : '',
+      state: patch.state ?? '',
+    };
+    return [...runs, created];
+  }
   const current = runs[index];
   const title = patch.title ?? current.title;
   const state = patch.state ?? current.state;

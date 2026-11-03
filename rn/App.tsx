@@ -34,8 +34,10 @@ function ZotRoot(): React.ReactElement {
   const [prompt, setPrompt] = useState('');
   const bakedGuard = useRef(createBakedOnceGuard());
 
-  // Baked pair hook (ios/ContentView.swift:68-76): inert until T5 registers a
-  // native launch-args source; at most one attempt per app session.
+  // Baked pair hook (ios/ContentView.swift:68-76): the native launch-args source
+  // is registered at startup by registerNativeBakedPairSource() in index.js:13,
+  // so this sees a source whenever the app was launched baked. At most one
+  // attempt per app session, and never over an existing token.
   useEffect(() => {
     if (!state.hydrated) return;
     if (state.token !== null) return;
@@ -77,7 +79,7 @@ function ZotRoot(): React.ReactElement {
         { paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
-      {state.token === null ? (
+      {!state.hydrated ? null : state.token === null ? (
         <PairScreen
           host={host}
           code={code}

@@ -17,7 +17,15 @@ export function isValidPairCode(raw: string): boolean {
   return PAIR_CODE_PATTERN.test(normalizePairCode(raw));
 }
 
+// Swift's `String.prefix(40)` counts Characters (grapheme clusters), not UTF-16
+// units. Slicing the JS string directly cuts at code units, so 30 emoji (60
+// units) became a 20-emoji title, and an odd cut point left a lone surrogate
+// that posts as U+FFFD. Array.from iterates code points, which is the closest
+// JS equivalent: an astral character is never split.
 export function deriveRunTitle(prompt: string): string {
   const text = prompt.trim();
-  return text.length <= RUN_TITLE_MAX ? text : text.slice(0, RUN_TITLE_MAX);
+  const points = Array.from(text);
+  return points.length <= RUN_TITLE_MAX
+    ? text
+    : points.slice(0, RUN_TITLE_MAX).join('');
 }

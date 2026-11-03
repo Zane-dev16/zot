@@ -2,7 +2,12 @@
 // ios/ApiClient.swift + ios/ContentView.swift:68-127 without React imports so
 // it can be tested headless. SessionProvider.tsx is the React shell around it.
 
-import type { AgentRun, TokenStore, Transport } from '../api/client.ts';
+import type {
+  AgentRun,
+  HostStore,
+  TokenStore,
+  Transport,
+} from '../api/client.ts';
 import {
   ApiError,
   createRun,
@@ -42,6 +47,11 @@ export type SessionControllerOptions = {
   transport?: Transport;
   host?: string;
   label?: string;
+  /**
+   * Paired host persistence. Optional: without it the controller runs on the
+   * injected/default host only, which is what the pure-node tests want.
+   */
+  hostStore?: HostStore;
 };
 
 export type SessionController = {
@@ -67,6 +77,10 @@ export function createSessionController(
 ): SessionController {
   const tokenStore = options.tokenStore;
   const transport = options.transport;
+  const hostStore = options.hostStore ?? null;
+  // An injected host is a deliberate override (tests, baked pair), so the
+  // stored host never wins over it.
+  const pinnedHost = options.host !== undefined;
   let state: SessionState = {
     host: normalizeBaseURL(options.host ?? DEFAULT_HOST),
     token: null,
@@ -122,6 +136,16 @@ export function createSessionController(
       });
       await tokenStore.saveToken(token);
       setState({ token, host: normalizedHost, error: '' });
+      // Pairing is the moment the host becomes the user's choice: remember it
+      // so relaunch reconnects here instead of the hard-coded default. A failed
+      // write must not fail pairing (the token is already saved).
+      if (hostStore !== null) {
+        try {
+          await hostStore.saveHost(normalizedHost);
+        } catch {
+          // storage unavailable; the session still works for this launch
+        }
+      }
       await refresh();
       return true;
     } catch (err) {
@@ -160,8 +184,16 @@ export function createSessionController(
     } catch {
       // Nothing to clear is the same end state as clearing it.
     }
+    if (hostStore !== null) {
+      try {
+        await hostStore.clearHost();
+      } catch {
+        // same end state as cleared
+      }
+    }
     setState({
       token: null,
+      host: normalizeBaseURL(DEFAULT_HOST),
       runs: [],
       error: '',
       busy: false,
@@ -171,6 +203,18 @@ export function createSessionController(
 
   async function hydrate(): Promise<void> {
     if (state.token !== null) return;
+    if (hostStore !== null && !pinnedHost) {
+      let stored: string | null = null;
+      try {
+        stored = await hostStore.loadHost();
+      } catch {
+        stored = null;
+      }
+      const normalized = stored === null ? '' : normalizeBaseURL(stored);
+      if (normalized !== '' && normalized !== state.host) {
+        setState({ host: normalized });
+      }
+    }
     let token: string | null = null;
     try {
       token = await tokenStore.loadToken();

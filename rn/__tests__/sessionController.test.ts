@@ -278,6 +278,98 @@ describe('signOut / hydrate', () => {
   });
 });
 
+describe('paired host persistence (relaunch reconnects where you paired)', () => {
+  function memoryHostStore(initial: string | null = null) {
+    let host = initial;
+    return {
+      async loadHost() {
+        return host;
+      },
+      async saveHost(next: string) {
+        host = next;
+      },
+      async clearHost() {
+        host = null;
+      },
+      peek() {
+        return host;
+      },
+    };
+  }
+
+  test('pair saves the normalized host next to the token', async () => {
+    const hostStore = memoryHostStore();
+    const controller = createSessionController({
+      tokenStore: createMemoryTokenStore(),
+      transport: daemon().transport,
+      hostStore,
+    });
+
+    await controller.pair(' 10.0.0.9:9100 ', '123456');
+    expect(hostStore.peek()).toBe('http://10.0.0.9:9100');
+  });
+
+  test('hydrate restores the stored host and uses it for the fetch', async () => {
+    const fake = daemon();
+    const controller = createSessionController({
+      tokenStore: createMemoryTokenStore('tok-1'),
+      transport: fake.transport,
+      hostStore: memoryHostStore('http://10.0.0.9:9100/'),
+    });
+    await controller.hydrate();
+
+    expect(controller.getState().host).toBe('http://10.0.0.9:9100');
+    expect(fake.calls[0].url).toBe('http://10.0.0.9:9100/api/v1/runs');
+  });
+
+  test('a pinned host wins over the stored one', async () => {
+    const controller = createSessionController({
+      tokenStore: createMemoryTokenStore('tok-1'),
+      transport: daemon().transport,
+      host: '127.0.0.1:8787',
+      hostStore: memoryHostStore('http://10.0.0.9:9100'),
+    });
+    await controller.hydrate();
+    expect(controller.getState().host).toBe('http://127.0.0.1:8787');
+  });
+
+  test('sign-out clears the stored host and falls back to the default', async () => {
+    const hostStore = memoryHostStore('http://10.0.0.9:9100');
+    const controller = createSessionController({
+      tokenStore: createMemoryTokenStore('tok-1'),
+      transport: daemon().transport,
+      hostStore,
+    });
+    await controller.hydrate();
+    expect(controller.getState().host).toBe('http://10.0.0.9:9100');
+
+    await controller.signOut();
+    expect(hostStore.peek()).toBe(null);
+    expect(controller.getState().host).toBe(DEFAULT_HOST);
+  });
+
+  test('a throwing host store never blocks pairing or hydrate', async () => {
+    const controller = createSessionController({
+      tokenStore: createMemoryTokenStore('tok-1'),
+      transport: daemon().transport,
+      hostStore: {
+        async loadHost() {
+          throw new Error('storage unavailable');
+        },
+        async saveHost() {
+          throw new Error('storage unavailable');
+        },
+        async clearHost() {
+          throw new Error('storage unavailable');
+        },
+      },
+    });
+    await controller.hydrate();
+    expect(controller.getState().token).toBe('tok-1');
+    expect(controller.getState().host).toBe(DEFAULT_HOST);
+  });
+});
+
 describe('live updates', () => {
   test('applyEvent folds stream state into the run list', async () => {
     const controller = createSessionController({
