@@ -107,3 +107,5 @@ GET /api/v1/stream is a WebSocket upgrade, auth by token query
 ```
 
 The browser app uses token query plus since id for replay. Retry now is a browser stream action and calls no route here.
+
+Frame encoding. `src/stream.js` writes RFC 6455 text frames by hand. Payloads of 126 bytes or more take the extended 16-bit length header, which is 2 marker bytes plus a 2-byte length field. Before the fix at `ebe24f0` the encoder allocated 3 bytes, so every frame that large threw `RangeError [ERR_OUT_OF_RANGE]`. Two failures followed. A replay on connect re-encoded a recorded 274-byte `run.token` and killed the daemon with an uncaught error in `onUpgrade`. A live broadcast dropped `run.token` plus `run.done` while the runner tick swallowed the throw, so runs never appeared finished in a client. `node scripts/verify-stream-frames.js` is the regression check; it parses headers by hand, prints PASS or FAIL, and exits non-zero on failure. Known and not fixed: payloads at 65536 bytes or more still write a 9-byte header where RFC 6455 wants 10. That path needs a payload above 64 KiB.

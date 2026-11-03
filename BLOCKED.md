@@ -8,4 +8,12 @@ Pair backend is green on local port 18787 as of 2026-10-06. Confirm returned 201
 
 - New device build plus install stays red as of 2026-10-13. Build exits 65. Install exits 1. Cause is unsigned output over ssh. Old app still launches with exit 0. Device flow on 2026-10-21 reused the installed app with exit 0. No keychain use was tried. Log lives at tmp zot-device-flow log on loki. Owner operator. Date 2026-10-21.
 
+- React Native app in rn stays device-unverified. Human gates G1 to G3 are open. No iOS build, simulator install, signed device install, or on-device check has run for it. This host is Linux headless with no Xcode, no simulator, and no iPhone. Owner operator. Date 2026-11-03.
+
+G1 is pod install plus an xcodebuild simulator build plus simctl install plus a launch plus a visual check of the pair screen. G2 is a signed device build plus install with team 36V92GAJBT and the push capable profile, then a check that aps-environment is in the decoded profile. G3 is the on-device set: a real APNs token in the push_token table plus an Apple 200, LAN pair confirmed visually, Keychain across relaunch, ATS plain http pair, and baked pair on device. Linux proof so far is npm test plus npm run typecheck plus npm run lint plus node scripts/verify-stream-frames.js, ran green on this host. The live tracers node scripts/verify-live.mjs plus node scripts/verify-stream-live.mjs cover pair to stream against a real daemon. Plan plus gate wording lives at .pi/factory/plan/rn-migration.md. These gates block T7, which archives ios/.
+
+- Latent in src/stream.js. The encodeText branch for payloads of 65536 bytes or more allocates a 9-byte header and writes the big-endian length at offset 1, which overwrites the 127 marker. RFC 6455 wants 10 bytes. Not fixed. It needs a payload above 64 KiB to hit. The 126 to 65535 branch is fixed at ebe24f0 and covered by node scripts/verify-stream-frames.js. Owner builder. Date 2026-11-03.
+
+- Latent in rn. The native module ZotNative is a legacy RCT_EXTERN_MODULE interop module, chosen over a TurboModule because codegen cannot be built on this Linux host. G1 must confirm it compiles plus links on the Mac and that NativeModules.ZotNative resolves on the simulator. Until then the push seam plus the baked pair seam are proven only against a mock under jest. Owner operator. Date 2026-11-03.
+
 Add items here when only a human can unblock. Keep one line per item with owner and date.

@@ -10,14 +10,46 @@ Local first daemon plus browser chat for personal automation.
 `src/stream.js` owns the WebSocket upgrade at api v1 stream.
 `src/events2.js` owns the stream event table plus replay.
 `web/app.js` owns post plus stream render plus reconnect plus approvals plus Activity.
-`ios` owns the Swift pairing screen plus chat list.
+`rn` owns the React Native client. It is the primary iOS path going forward.
+`ios` owns the SwiftUI client. It still builds for the simulator and pairs, and it stays in tree until the React Native app passes the device gates in `BLOCKED.md`.
+
+Clients.
+
+Two iOS clients are in tree.
+
+`rn` is bare React Native 0.88 plus TypeScript. It pairs with the six digit code, stores the token in Keychain, lists plus creates runs, follows the api v1 stream with polling fallback, uploads the raw APNs token, and reads baked pair launch args. Transport plus socket are injected, so the same modules run under jest and under plain node against a real daemon. `docs/IOS.md` has the architecture. `docs/API.md` has the routes.
+
+`ios` is the SwiftUI client. It polls runs and does not use the stream. It is being retired. The plan archives it in T7 after human gates G1 to G3 pass.
+
+The React Native app is device-unverified. No iOS build, simulator install, or on-device check has run for it. This host is Linux headless, with no Xcode, no simulator, and no iPhone. What runs here is jest, typecheck, lint, the stream frame regression check, and live tracer runs against a real daemon. Open human gates are listed in `BLOCKED.md`.
+
+Commands that work on this host.
+
+```sh
+cd rn
+npm test
+npm run typecheck
+npm run lint
+```
+
+Live tracers. Each boots its own daemon on an isolated port and database, then kills only the PID it started.
+
+```sh
+cd rn
+node scripts/verify-live.mjs
+node scripts/verify-stream-live.mjs
+```
+
+The first covers pair, persist, list, create, unpair. The second covers stream live, reconnect with the saved cursor, replay, heartbeat, and a completed run over the socket. Override the port when the default collides, as in `PORT=18787 node scripts/verify-stream-live.mjs`. Do not use `pkill node`.
+
+To drive a daemon by hand, follow the isolated boot pattern in `.pi/skills/verify-zot/SKILL.md`. Set `PORT` plus `ZOT_DB` per run and kill the saved PID only.
 
 Start here.
 
 1. Follow `docs/QUICKSTART.md` to boot and send one prompt.
 2. Open `http://localhost:8787/` for the browser chat.
 3. Read `docs/API.md` for routes and run states.
-4. See `docs/IOS.md` for the iOS pairing flow.
+4. See `docs/IOS.md` for the iOS pairing flow and the React Native client.
 
 Quickstart.
 
