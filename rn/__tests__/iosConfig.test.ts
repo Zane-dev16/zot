@@ -11,7 +11,9 @@
  * name or the bridge class renamed, and an unrelated PBXFileReference deleted.
  * So: the plists are parsed into real nested values, the four settings are read
  * out of the two app-target buildSettings blocks specifically, every referenced
- * path is checked on disk, and the Swift <-> ObjC bridge names must pair up.
+ * path is checked on disk, the app target's own Sources phase must list each
+ * bridge build file (a build-file entry alone compiles nothing), and the
+ * Swift <-> ObjC bridge names must pair up.
  *
  * Dependency-free on purpose (`plist` is not installed and this must stay
  * offline/jest-fast), hence the small parsers below.
@@ -255,6 +257,68 @@ function setting(body: string, key: string): string | null {
   return null;
 }
 
+/** One pbxproj object: two tabs, UUID, optional comment, then a braced body. */
+type PbxObject = { id: string; label: string; body: string };
+
+function parseObjects(text: string): PbxObject[] {
+  const objects: PbxObject[] = [];
+  // Xcode writes leaf objects (PBXBuildFile, PBXFileReference) on one line and
+  // container objects over several. Both shapes are matched explicitly rather
+  // than brace-counted, so a re-indented file fails loudly instead of silently
+  // parsing into the wrong objects.
+  const patterns = [
+    /^\t\t([0-9A-F]{24}) (?:\/\* ([^*]+) \*\/ )?= \{\n([\s\S]*?)\n\t\t\};$/gm,
+    /^\t\t([0-9A-F]{24}) (?:\/\* ([^*]+) \*\/ )?= \{([^\n]*)\};$/gm,
+  ];
+  for (const re of patterns) {
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(text)) !== null) {
+      objects.push({
+        id: match[1],
+        label: (match[2] ?? '').trim(),
+        body: match[3],
+      });
+    }
+  }
+  return objects;
+}
+
+const pbxObjects = parseObjects(pbxproj);
+const objectById = new Map(pbxObjects.map(object => [object.id, object]));
+
+function isaOf(id: string): string | null {
+  const object = objectById.get(id);
+  if (object === undefined) return null;
+  const isa = /\bisa = ([A-Za-z]+);/.exec(object.body);
+  return isa === null ? null : isa[1];
+}
+
+/** Ids in a parenthesised `key = ( ... );` list inside an object body. */
+function objectList(body: string, key: string): string[] {
+  const open = new RegExp('^\\t+' + key + ' = \\($', 'm').exec(body);
+  if (open === null) return [];
+  const ids: string[] = [];
+  for (const line of body.slice(open.index).split('\n').slice(1)) {
+    if (/^\t+\);$/.test(line)) return ids;
+    const id = /^\t+([0-9A-F]{24}) /.exec(line);
+    if (id !== null) ids.push(id[1]);
+  }
+  return ids;
+}
+
+/** File name a PBXBuildFile points at, resolved through its `fileRef`. */
+function buildFileSource(body: string): string | null {
+  const ref = /fileRef = ([0-9A-F]{24})\b/.exec(body);
+  if (ref === null) return null;
+  const target = objectById.get(ref[1]);
+  if (target === undefined || isaOf(ref[1]) !== 'PBXFileReference') return null;
+  const named = /name = (?:"([^"]+)"|([^;]+));/.exec(target.body);
+  const located = /path = (?:"([^"]+)"|([^;]+));/.exec(target.body);
+  const raw = named?.[1] ?? named?.[2] ?? located?.[1] ?? located?.[2] ?? '';
+  const name = raw.trim();
+  return name === '' ? null : name;
+}
+
 describe('the plists are parseable structures (guard against a silent {})', () => {
   test('Info.plist parses with its documented top-level keys', () => {
     expect(Object.keys(infoPlist).length).toBeGreaterThan(10);
@@ -431,10 +495,7 @@ describe('every referenced source path exists on disk', () => {
     }
   });
 
-  test('the Swift and ObjC bridge files are compiled by the app target', () => {
-    for (const config of appConfigs) {
-      expect(setting(config.body, 'PRODUCT_NAME')).toBe('ZotRN');
-    }
+  test('every bridge source has a PBXBuildFile entry', () => {
     const buildFiles = pbxproj
       .split('\n')
       .filter(line => line.includes('isa = PBXBuildFile;'));
@@ -450,6 +511,49 @@ describe('every referenced source path exists on disk', () => {
       expect(line).toBeDefined();
       // A build file entry must be a real object with a pbxproj UUID.
       expect(/^\t\t[0-9A-F]{24} /.test(line ?? '')).toBe(true);
+    }
+  });
+
+  test('the app target Sources phase lists those build files', () => {
+    // An entry above only declares a build file; compilation happens because
+    // the app target's PBXSourcesBuildPhase `files` list names it. Deleting
+    // one line there left every other check green, and NativeModules.ZotNative
+    // then never exists on a device, so push and baked pair go inert silently.
+    // Resolve build file -> fileRef -> file name, then require the build file
+    // id in the Sources phase the ZotRN target itself enumerates.
+    for (const config of appConfigs) {
+      expect(setting(config.body, 'PRODUCT_NAME')).toBe('ZotRN');
+    }
+    const target = pbxObjects.find(
+      object =>
+        /\bisa = PBXNativeTarget;/.test(object.body) &&
+        /^\t+name = ZotRN;$/m.test(object.body),
+    );
+    expect(target).toBeDefined();
+    const sourcesPhases = objectList(target?.body ?? '', 'buildPhases').filter(
+      id => isaOf(id) === 'PBXSourcesBuildPhase',
+    );
+    // Exactly one Sources phase belongs to the app target; any other phase
+    // holding the id is a different (and non-compiling) list.
+    expect(sourcesPhases).toHaveLength(1);
+    const compiled = objectList(
+      objectById.get(sourcesPhases[0])?.body ?? '',
+      'files',
+    );
+    expect(compiled.length).toBeGreaterThan(0);
+    for (const source of [
+      'ZotNative.swift',
+      'ZotNativeBridge.m',
+      'AppDelegate.swift',
+      'SceneDelegate.swift',
+    ]) {
+      const entries = pbxObjects.filter(
+        object =>
+          isaOf(object.id) === 'PBXBuildFile' &&
+          buildFileSource(object.body) === source,
+      );
+      expect(entries).toHaveLength(1);
+      expect(compiled).toContain(entries[0].id);
     }
   });
 });
