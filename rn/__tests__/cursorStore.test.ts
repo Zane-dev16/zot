@@ -43,6 +43,13 @@ describe('streamCursorKey', () => {
 });
 
 describe('createAsyncStorageCursorStore', () => {
+  test('the key argument is required', () => {
+    // A defaulted key would let a future caller silently reuse one cursor
+    // across daemons, which is the bug this store exists to prevent. TypeScript
+    // rejects a call without it; the arity check keeps the runtime honest too.
+    expect(createAsyncStorageCursorStore.length).toBe(1);
+  });
+
   test('each host keeps its own cursor', async () => {
     const first = createAsyncStorageCursorStore(
       streamCursorKey('http://192.168.68.56:8787'),

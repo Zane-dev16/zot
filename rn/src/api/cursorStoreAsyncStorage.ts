@@ -31,9 +31,10 @@ export function streamCursorKey(host: string): string {
   return STREAM_CURSOR_KEY + '.' + (slug === '' ? 'default' : slug);
 }
 
-export function createAsyncStorageCursorStore(
-  key: string = STREAM_CURSOR_KEY,
-): CursorStore {
+export function createAsyncStorageCursorStore(key: string): CursorStore {
+  // The key is required on purpose. A default here would be one cursor shared
+  // by every daemon again (see the header): a future caller omitting the
+  // argument is a type error instead of a silent skip on the next host.
   return {
     async load() {
       const value = await AsyncStorage.getItem(key);
