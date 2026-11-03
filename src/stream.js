@@ -56,7 +56,8 @@ function encodeText(str) {
 		// the header is 2 marker bytes + 8 length bytes. Allocating 9 here wrote
 		// the length over the 0x7F marker, so a >= 64 KiB payload (a long
 		// scheduler job name reaches that through POST /api/v1/jobs) went out as
-		// a zero-length text frame plus 8 bytes of bogus header.
+		// a zero-length text frame plus the 7 header bytes left after the
+		// decoder consumed the first 2.
 		head = Buffer.alloc(10);
 		head[0] = 0x81;
 		head[1] = 127;

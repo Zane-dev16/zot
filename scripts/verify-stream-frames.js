@@ -1,23 +1,30 @@
 "use strict";
 // WebSocket text-frame regression check for the daemon stream (src/stream.js).
 //
-// Regression 1 (fixed at ebe24f0): encodeText allocated a 3-byte header for the
-// 16-bit extended-length path (RFC 6455 5.2 wants 4: 0x81, 126, then 2 length
-// bytes). Every outbound frame whose payload was 126 bytes or more threw
-// ERR_OUT_OF_RANGE. A run.token event is ~131 bytes.
+// Two distinct encodeText regressions, with different blast radii.
 //
-// Regression 2 (fixed here): the >= 65536 branch allocated 9 bytes and wrote
-// the 64-bit length at offset 1, overwriting the 0x7F marker. RFC 6455 5.2
-// wants a 10-byte header: 0x81, 0x7F, then 8 big-endian length bytes. It was
-// reachable, not latent: POST /api/v1/jobs accepts an unbounded name
-// (src/api.js:657-666), so one scheduler tick publishing a run.created with
-// that title (src/runner.js:244-258) put a 70 KiB payload on the wire.
+// Regression 1 (fixed at ebe24f0), payloads of 126..65535 bytes: encodeText
+// allocated a 3-byte header for the 16-bit extended-length path (RFC 6455 5.2
+// wants 4: 0x81, 126, then 2 length bytes). Every outbound frame whose payload
+// was 126 bytes or more threw ERR_OUT_OF_RANGE. A run.token event is ~131
+// bytes. The replay loop runs inside onUpgrade with no try/catch around it, so
+// replaying such a frame could kill the daemon with exit 1; a live broadcast
+// threw inside the publishing call instead.
 //
-// Unlike regression 1, nothing threw. The old header for a 70,116-byte body was
-// `81 00 00 00 00 00 01 11 e4` + body: the overwritten marker turned the frame
-// into a ZERO-LENGTH text frame, and the client was left with 8 bytes of
-// length field in its decode buffer to parse as the next frame's header. Both
-// paths therefore corrupted the client rather than the daemon:
+// Regression 2 (fixed here), payloads of 65536 bytes or more: the >= 65536
+// branch allocated 9 bytes and wrote the 64-bit length at offset 1, overwriting
+// the 0x7F marker. RFC 6455 5.2 wants a 10-byte header: 0x81, 0x7F, then 8
+// big-endian length bytes. It was reachable, not latent: POST /api/v1/jobs
+// accepts an unbounded name (src/api.js:657-666), so one scheduler tick
+// publishing a run.created with that title (src/runner.js:244-258) put a 70 KiB
+// payload on the wire.
+//
+// Nothing threw on that 64-bit path. The old header for a 70,116-byte body was
+// `81 00 00 00 00 00 01 11 e4` + body: the overwritten marker made the decoder
+// read a ZERO-LENGTH text frame, so it consumed the first 2 bytes and left the
+// other 7 of the 9 header bytes in its buffer to misparse as the next frame's
+// header. Both 64-bit paths therefore corrupted the client rather than the
+// daemon:
 //   - LIVE/BROADCAST (src/stream.js broadcast via publish): every connected
 //     socket desynced in place. The daemon stayed healthy and the DB recorded
 //     the run, while the client silently lost the events that followed, e.g.
@@ -26,7 +33,7 @@
 //     client before its cursor could advance, so it reconnected onto the same
 //     corrupt frame forever (the shipped RN client logged 22 reconnect cycles
 //     in 6s with its cursor frozen).
-// Nothing in either path crashes the daemon; the damage is client-side.
+// Nothing in either 64-bit path crashes the daemon; that damage is client-side.
 //
 // Headers are parsed here by hand instead of trusting decodeFrames, so an
 // encoder and decoder that agree on the same wrong layout cannot pass.
@@ -226,8 +233,9 @@ function main() {
 	// The reachable 64-bit victim: a scheduler job name is unbounded
 	// (src/api.js:657-666) and runner.publish sends run.created with that title
 	// (src/runner.js:244-258), so a 70 KiB title is one HTTP POST away. It used to
-	// go out as 81 00 <8 length bytes> + body, which every client reads as a
-	// zero-length text frame followed by 8 bytes of garbage header.
+	// go out as 81 00 <7 length bytes> + body, which every client reads as a
+	// zero-length text frame followed by 7 bytes of garbage header (the 9-byte
+	// allocation minus the 2 bytes the decoder read as that frame's header).
 	const hugeTitle = "j".repeat(70000);
 	const hugeJSON = JSON.stringify({
 		id: "21",
