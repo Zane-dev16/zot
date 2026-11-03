@@ -57,4 +57,25 @@ test -f ios/ApiClient.swift
 test -f ios/ContentView.swift
 echo "PASS ios files exist"
 
+# NOTE for T7: these four assertions (and the `ios/` legacy app they guard) move
+# or disappear when ios/ is archived. Update this block in the same commit that
+# archives it, or this check fails on a tree that is actually correct.
+
+# RN client checks. A green gate used to say nothing about rn/ or rn/ios, even
+# though the shipped client is the RN app. Honest on a clean checkout: without
+# node_modules none of this can run at all, so say SKIP instead of faking a pass
+# or failing on an installation the checkout never had.
+if [ -d rn/node_modules ]; then
+	(
+		cd rn
+		npx prettier --check "**/*.{ts,tsx,js,mjs}"
+		npx tsc --noEmit
+		npx jest
+		npx eslint .
+	)
+	echo "PASS rn checks: prettier, tsc, jest, eslint"
+else
+	echo "SKIP rn checks (installed deps absent)"
+fi
+
 echo "ALL PASS"
