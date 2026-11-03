@@ -44,6 +44,8 @@ fi
 grep -q '"error"' "${TMPDIR}/unauth.json"
 echo "PASS unauthorized api returns 401 with JSON error"
 
+node scripts/verify-stream-frames.js
+
 test -f web/index.html
 test -f web/app.js
 test -f web/style.css
