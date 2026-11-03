@@ -3,9 +3,9 @@ module.exports = {
   extends: '@react-native',
   overrides: [
     {
-      // Live verification scripts are node ESM; the default parser options
-      // treat them as ES5 scripts (scripts/*.mjs is outside eslint's default
-      // extension set, so this only bites explicit lints).
+      // Live verification scripts are node ESM. `eslint .` does lint
+      // scripts/*.mjs, but the default parser options treat them as ES5
+      // scripts, so they need the module plus es2022 parser here.
       files: ['*.mjs', 'scripts/**/*.mjs'],
       parserOptions: {
         ecmaVersion: 2022,

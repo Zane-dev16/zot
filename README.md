@@ -11,7 +11,7 @@ Local first daemon plus browser chat for personal automation.
 `src/events2.js` owns the stream event table plus replay.
 `web/app.js` owns post plus stream render plus reconnect plus approvals plus Activity.
 `rn` owns the React Native client. It is the primary iOS path going forward.
-`ios` owns the SwiftUI client. It last proved a simulator build plus install on 2026-10-01, and the simulator pair matrix on 2026-10-13; those proofs are historical. It stays in tree until the React Native app passes the device gates in `BLOCKED.md`.
+`ios` owns the SwiftUI client. Its last recorded simulator build, install plus launch proof is 2026-10-05; the simulator pair matrix passed on 2026-10-13 and the baked pair flavor on the simulator on 2026-10-21. Those proofs are historical. It stays in tree until the React Native app passes the device gates in `BLOCKED.md`.
 
 Clients.
 
