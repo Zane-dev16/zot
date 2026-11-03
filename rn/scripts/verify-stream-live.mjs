@@ -2,7 +2,7 @@
 // real zot daemon (src/daemon2.js). Boots the daemon on an isolated PORT + ZOT_DB,
 // then proves: pair-confirm -> list -> stream live -> reconnect with the saved
 // since cursor -> replay from since=0 -> 15s heartbeat -> bad token rejected ->
-// create run. Always kills the daemon.
+// a completed run over the live socket. Always kills the daemon.
 //
 // Node runs the TS modules directly (type stripping). Transport and socket stay
 // injectable in the modules, so this exercises the same code the app ships.
@@ -11,12 +11,11 @@
 // over http (ios/Info.plist ATS exceptions) and the browser client does the same
 // (web/app.js:238 maps https -> wss, http -> ws). Not a TLS downgrade.
 //
-// Known daemon limitation (out of this lane, src/stream.js:41-57 encodeText):
-// the extended-length header is allocated 3 bytes instead of 4, so any frame
-// with a payload >= 126 bytes throws ERR_OUT_OF_RANGE. A run.token event is
-// ~131 bytes, so this script keeps stream connections away from completed
-// (non-tool) runs: it driving live run.state/tool.request, replay and heartbeat
-// frames only. See the commit message for the reproducer.
+// Completed runs are covered over the live socket too. src/stream.js now writes
+// the 4-byte extended-length header correctly (fixed at ebe24f0), so a run.token
+// frame (>=126 bytes serialized) and the following run.done must both arrive
+// without aborting the connection. That is Leg 5 below: it used to run detached
+// from any stream client while the encoder bug stood.
 
 import assert from "node:assert";
 import { spawn } from "node:child_process";
@@ -302,31 +301,88 @@ async function main() {
 			badHandle.stop();
 		}
 
-		// Leg 5: T1 write path on the same daemon, with no stream client
-		// attached (the daemon limitation noted at the top of this file).
-		const created = await createRun(HOST, token, {
-			title: "rn stream verify",
-			prompt: "hello from the rn stream tracer",
+		// Leg 5: a plain run completes while a live stream client is attached.
+		// run.token serializes to >=126 bytes, which is the extended-length frame
+		// the encoder used to corrupt; the socket must survive it and run.done.
+		const doneEvents = [];
+		const doneCursor = createMemoryCursorStore();
+		const doneHandle = connectStream(HOST, token, {
+			cursorStore: doneCursor,
+			onEvent: event => doneEvents.push(event),
 		});
-		assert.strictEqual(typeof created.id, "string", "run id is string");
-		let finalState = "";
-		for (let i = 0; i < 60; i += 1) {
-			const runs = await listRuns(HOST, token);
-			const run = runs.find(candidate => candidate.id === created.id);
-			finalState = run ? run.state : "missing";
-			if (finalState === "done") break;
-			await sleep(250);
+		let created = null;
+		try {
+			await doneHandle.start();
+			await waitFor(
+				() => doneHandle.status() === "live",
+				5000,
+				"stream live for the completion run",
+			);
+			created = await createRun(HOST, token, {
+				title: "rn stream verify",
+				prompt: "hello from the rn stream tracer",
+			});
+			await waitFor(
+				() => eventTypes(doneEvents, created.id).includes("run.done"),
+				15000,
+				"live run.done for " + created.id,
+			);
+			const doneTypes = eventTypes(doneEvents, created.id);
+			assert.ok(doneTypes.includes("run.state"), "live run.state arrived");
+			assert.ok(doneTypes.includes("run.token"), "run.token frame arrived");
+			const tokenEvent = doneEvents.find(
+				event => event.runId === created.id && event.type === "run.token",
+			);
+			assert.ok(tokenEvent, "run.token event carries the run id");
+			assert.strictEqual(
+				typeof tokenEvent.token,
+				"string",
+				"run.token carries text",
+			);
+			const frameBytes = JSON.stringify(tokenEvent).length;
+			assert.ok(
+				frameBytes >= 126,
+				"run.token exercised the extended-length header (" +
+					frameBytes +
+					" bytes)",
+			);
+			assert.strictEqual(
+				doneHandle.status(),
+				"live",
+				"socket survived the completed run",
+			);
+			const doneCursorValue = await doneCursor.load();
+			assert.ok(
+				doneCursorValue !== null && doneCursorValue !== "",
+				"completion cursor persisted",
+			);
+			console.log(
+				"PASS live stream carried a completed run: " +
+					doneTypes.join(",") +
+					" (run.token frame " +
+					frameBytes +
+					" bytes)",
+			);
+			passed += 1;
+		} finally {
+			doneHandle.stop();
 		}
-		assert.strictEqual(finalState, "done", "created run reached done");
+
+		// T1 write path agrees on the same daemon, and every run is listed.
 		const runs = await listRuns(HOST, token);
+		const createdRow = runs.find(run => run.id === created.id);
+		assert.strictEqual(
+			createdRow ? createdRow.state : "missing",
+			"done",
+			"created run reached done",
+		);
 		assert.ok(runs.length >= 3, "list shows every run");
 		console.log(
 			"PASS createRun -> listRuns: " +
 				runs.length +
 				" runs, " +
 				created.id +
-				" is " +
-				finalState,
+				" is done",
 		);
 		passed += 1;
 
