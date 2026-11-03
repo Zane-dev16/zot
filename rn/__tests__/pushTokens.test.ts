@@ -325,4 +325,69 @@ describe('createPushTokenSync (ContentView load/pushUp + .zotPushToken)', () => 
   test('the real module resolves to null off-device (empty NativeModules)', () => {
     expect(getNativePushTokenModule()).toBe(null);
   });
+
+  test('a malformed native module is inert, not a startup crash', async () => {
+    // A present-but-broken module: the promise methods exist, the RCTEventEmitter
+    // surface NativeEventEmitter needs does not. Before the guard this threw
+    // inside start() during a React effect and took startup down.
+    const broken = {
+      requestPushRegistration: async () => true,
+      getStashedPushToken: async () => TOKEN,
+    } as unknown as PushTokenNative;
+    const fake = accepted();
+    const sync = createPushTokenSync({
+      transport: fake.transport,
+      native: broken,
+      appState: fakeAppState(),
+    });
+
+    const stop = sync.start(() => TARGET);
+    expect(typeof stop).toBe('function');
+    stop();
+  });
+
+  test('a listener that throws at subscribe time leaves push inert', async () => {
+    const native: PushTokenNative = {
+      requestPushRegistration: async () => true,
+      getStashedPushToken: async () => TOKEN,
+      addPushTokenListener() {
+        throw new Error('NativeEventEmitter: module is not an RCTEventEmitter');
+      },
+    };
+    const fake = accepted();
+    const sync = createPushTokenSync({
+      transport: fake.transport,
+      native,
+      appState: fakeAppState(),
+    });
+
+    // No throw out of the subscription setup, and the foreground hook still
+    // uploads (start() attempted each hook independently).
+    let stop: (() => void) | null = null;
+    expect(() => {
+      stop = sync.start(() => TARGET);
+    }).not.toThrow();
+    expect(stop).not.toBeNull();
+    (stop as unknown as () => void)();
+    await expect(sync.sync(TARGET)).resolves.toEqual({ ok: true, status: 201 });
+  });
+
+  test('a disposer that throws does not break teardown', () => {
+    const native: PushTokenNative = {
+      requestPushRegistration: async () => true,
+      getStashedPushToken: async () => TOKEN,
+      addPushTokenListener() {
+        return () => {
+          throw new Error('already disposed');
+        };
+      },
+    };
+    const sync = createPushTokenSync({
+      transport: accepted().transport,
+      native,
+      appState: null,
+    });
+    const stop = sync.start(() => TARGET);
+    expect(() => stop()).not.toThrow();
+  });
 });

@@ -64,6 +64,8 @@ export type SessionController = {
   signOut(): Promise<void>;
   applyEvent(event: StreamEvent): void;
   setStreamStatus(status: StreamStatus): void;
+  /** Replace the single error line; '' clears it. */
+  setError(error: string): void;
 };
 
 function messageOf(err: unknown, fallback: string): string {
@@ -239,6 +241,11 @@ export function createSessionController(
     setState({ status });
   }
 
+  function setError(error: string): void {
+    if (state.error === error) return;
+    setState({ error });
+  }
+
   return {
     getState(): SessionState {
       return state;
@@ -256,5 +263,6 @@ export function createSessionController(
     signOut,
     applyEvent,
     setStreamStatus,
+    setError,
   };
 }

@@ -8,6 +8,7 @@ import type {
   PushTokenSync,
   PushTokenTarget,
 } from '../src/api/pushTokens';
+import { PUSH_REGISTER_ERROR } from '../src/api/pushTokens';
 import type { StreamEvent, StreamHandle } from '../src/api/stream';
 import { createMemoryCursorStore } from '../src/api/stream';
 import {
@@ -29,25 +30,37 @@ type FakePushSync = PushTokenSync & {
 function fakePushSync(): FakePushSync {
   const syncs: PushTokenTarget[] = [];
   let readTarget: (() => PushTokenTarget) | null = null;
+  let report: ((result: PushTokenResult) => void) | undefined;
   const fake: FakePushSync = {
     syncs,
     stopped: false,
     request: jest.fn(async () => true),
+    // A test can replace the result with mockResolvedValue/mockRejectedValue.
     sync: jest.fn(async (target: PushTokenTarget): Promise<PushTokenResult> => {
       syncs.push(target);
       return { ok: true, status: 201 };
     }),
-    start: jest.fn((getTarget: () => PushTokenTarget) => {
-      readTarget = getTarget;
-      return () => {
-        readTarget = null;
-        fake.stopped = true;
-      };
-    }),
+    start: jest.fn(
+      (
+        getTarget: () => PushTokenTarget,
+        onResult?: (result: PushTokenResult) => void,
+      ) => {
+        readTarget = getTarget;
+        report = onResult;
+        return () => {
+          readTarget = null;
+          report = undefined;
+          fake.stopped = true;
+        };
+      },
+    ),
     foreground() {
       if (readTarget === null) return;
       const target = readTarget();
-      fake.sync(target).catch(() => {});
+      fake
+        .sync(target)
+        .then(result => report?.(result))
+        .catch(() => {});
     },
   };
   return fake;
@@ -120,16 +133,32 @@ function probeText(renderer: ReactTestRenderer.ReactTestRenderer): string {
   return String(renderer.root.findByProps({ testID: 'probe' }).props.children);
 }
 
+function ErrorProbe(): React.ReactElement {
+  const { state } = useSessionState();
+  return (
+    <Text testID="error-probe">
+      {state.error === '' ? 'no-error' : state.error}
+    </Text>
+  );
+}
+
+function errorText(renderer: ReactTestRenderer.ReactTestRenderer): string {
+  return String(
+    renderer.root.findByProps({ testID: 'error-probe' }).props.children,
+  );
+}
+
 type Mounted = { renderer: ReactTestRenderer.ReactTestRenderer };
 let mounted: Mounted | null = null;
 
-async function mount(deps: Parameters<typeof SessionProvider>[0]['deps']) {
+async function mount(
+  deps: Parameters<typeof SessionProvider>[0]['deps'],
+  child: React.ReactElement = <StatusProbe />,
+) {
   let renderer: ReactTestRenderer.ReactTestRenderer | null = null;
   await ReactTestRenderer.act(async () => {
     renderer = ReactTestRenderer.create(
-      <SessionProvider deps={deps}>
-        <StatusProbe />
-      </SessionProvider>,
+      <SessionProvider deps={deps}>{child}</SessionProvider>,
     );
   });
   if (renderer === null) throw new Error('no renderer');
@@ -268,5 +297,115 @@ describe('SessionProvider', () => {
       await waitFor(() => fake.calls.length > initial);
     });
     expect(fake.calls.length).toBeGreaterThan(initial);
+  });
+
+  test("a failed push upload shows Swift's line instead of being discarded", async () => {
+    const fake = daemon();
+    const connector = fakeConnector();
+    const push = fakePushSync();
+    push.sync.mockResolvedValue({
+      ok: false,
+      status: 400,
+      error: 'invalid token',
+    });
+    const { renderer } = await mount(
+      {
+        tokenStore: createMemoryTokenStore('tok-1'),
+        transport: fake.transport,
+        connectStreamFn: connector.connectStreamFn,
+        pushSync: push,
+        pushNative: null,
+        pollMs: 0,
+      },
+      <ErrorProbe />,
+    );
+
+    await ReactTestRenderer.act(async () => {
+      await waitFor(() => push.sync.mock.calls.length >= 1);
+    });
+    expect(errorText(renderer)).toBe(PUSH_REGISTER_ERROR);
+    expect(PUSH_REGISTER_ERROR).toBe('Push register failed. Pull to retry.');
+  });
+
+  test('a skipped push upload (no device token) stays silent', async () => {
+    const fake = daemon();
+    const connector = fakeConnector();
+    const push = fakePushSync();
+    push.sync.mockResolvedValue({ ok: false, skipped: 'no-token' });
+    const { renderer } = await mount(
+      {
+        tokenStore: createMemoryTokenStore('tok-1'),
+        transport: fake.transport,
+        connectStreamFn: connector.connectStreamFn,
+        pushSync: push,
+        pushNative: null,
+        pollMs: 0,
+      },
+      <ErrorProbe />,
+    );
+
+    await ReactTestRenderer.act(async () => {
+      await waitFor(() => push.sync.mock.calls.length >= 1);
+    });
+    expect(errorText(renderer)).toBe('no-error');
+  });
+
+  test('a rejected registration shows the same line, one time', async () => {
+    const fake = daemon();
+    const connector = fakeConnector();
+    const push = fakePushSync();
+    // Registration failed, so there is no device token to upload: the sync
+    // skips and only the request rejection may put a line on screen.
+    push.request.mockRejectedValue(new Error('APNs registration failed'));
+    push.sync.mockResolvedValue({ ok: false, skipped: 'no-token' });
+    const { renderer } = await mount(
+      {
+        tokenStore: createMemoryTokenStore('tok-1'),
+        transport: fake.transport,
+        connectStreamFn: connector.connectStreamFn,
+        pushSync: push,
+        pushNative: null,
+        pollMs: 0,
+      },
+      <ErrorProbe />,
+    );
+
+    await ReactTestRenderer.act(async () => {
+      await waitFor(() => push.request.mock.calls.length === 1);
+    });
+    expect(errorText(renderer)).toBe(PUSH_REGISTER_ERROR);
+    // No retry storm: the provider asks once per mount.
+    expect(push.request.mock.calls).toHaveLength(1);
+  });
+
+  test('a later successful upload clears the push line', async () => {
+    const fake = daemon();
+    const connector = fakeConnector();
+    const push = fakePushSync();
+    push.sync.mockResolvedValue({ ok: false, status: 500, error: 'boom' });
+    const { renderer } = await mount(
+      {
+        tokenStore: createMemoryTokenStore('tok-1'),
+        transport: fake.transport,
+        connectStreamFn: connector.connectStreamFn,
+        pushSync: push,
+        pushNative: null,
+        pollMs: 0,
+      },
+      <ErrorProbe />,
+    );
+
+    await ReactTestRenderer.act(async () => {
+      await waitFor(() => push.sync.mock.calls.length >= 1);
+    });
+    expect(errorText(renderer)).toBe(PUSH_REGISTER_ERROR);
+
+    // Foregrounding re-uploads; this time the daemon accepts it.
+    push.sync.mockResolvedValue({ ok: true, status: 201 });
+    await ReactTestRenderer.act(async () => {
+      push.foreground();
+      await waitFor(() => push.sync.mock.calls.length >= 2);
+    });
+    expect(errorText(renderer)).toBe('no-error');
   });
 });

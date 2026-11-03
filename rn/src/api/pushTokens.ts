@@ -10,7 +10,12 @@
 import { AppState, NativeEventEmitter } from 'react-native';
 
 import type { Transport } from './client.ts';
-import { defaultTransport, normalizeBaseURL } from './client.ts';
+import {
+  defaultTransport,
+  errorMessage,
+  normalizeBaseURL,
+  parseResponse,
+} from './client.ts';
 import { getZotNativeModule } from './zotNative.ts';
 
 /** Same event name the Swift module posts (ios/ZotApp.swift `.zotPushToken`). */
@@ -22,6 +27,8 @@ export const PUSH_TOKEN_PATTERN = /^[0-9a-f]{64}$/;
 export const INVALID_PUSH_HOST_ERROR =
   'Invalid host. Add http:// and check host.';
 export const PUSH_UPLOAD_FALLBACK = 'Push token upload failed.';
+/** The one line Swift showed when the upload failed (ios/ContentView.swift:107-113). */
+export const PUSH_REGISTER_ERROR = 'Push register failed. Pull to retry.';
 
 export type PushTokenSkipReason = 'no-token' | 'invalid-token' | 'unpaired';
 
@@ -41,36 +48,6 @@ export function normalizePushToken(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const token = raw.trim().toLowerCase();
   return PUSH_TOKEN_PATTERN.test(token) ? token : null;
-}
-
-function errorFromResponse(
-  status: number,
-  text: string,
-  json: unknown,
-): string {
-  const value =
-    json !== null && typeof json === 'object'
-      ? (json as { error?: unknown }).error
-      : undefined;
-  if (typeof value === 'string' && value !== '') return value;
-  const trimmed = text.trim();
-  if (trimmed !== '' && trimmed.length < 300) return trimmed;
-  return `${PUSH_UPLOAD_FALLBACK.replace(/\.$/, '')} (status ${status}).`;
-}
-
-async function parseBody(
-  res: Awaited<ReturnType<Transport>>,
-): Promise<{ status: number; text: string; json: unknown }> {
-  const text = await res.text();
-  let json: unknown = null;
-  if (text !== '') {
-    try {
-      json = JSON.parse(text);
-    } catch {
-      json = null;
-    }
-  }
-  return { status: res.status, text, json };
 }
 
 /**
@@ -106,9 +83,19 @@ export async function registerPushToken(
       },
       body: JSON.stringify({ token: normalized, platform: 'ios' }),
     });
-    const { status, text, json } = await parseBody(res);
+    const { status, text, json } = await parseResponse(res);
     if (status === 200 || status === 201) return { ok: true, status };
-    return { ok: false, status, error: errorFromResponse(status, text, json) };
+    // Same mapping as every other call (client.ts errorMessage); only the
+    // fallback differs, because a push upload failure is its own failure mode.
+    const fallback = `${PUSH_UPLOAD_FALLBACK.replace(
+      /\.$/,
+      '',
+    )} (status ${status}).`;
+    return {
+      ok: false,
+      status,
+      error: errorMessage(json, text, fallback),
+    };
   } catch (err) {
     const message =
       err instanceof Error && err.message !== ''
@@ -132,18 +119,30 @@ type NativeEventEmitterTarget = ConstructorParameters<
 export function getNativePushTokenModule(): PushTokenNative | null {
   const module = getZotNativeModule();
   if (module === null) return null;
+  // A present-but-malformed module must stay inert instead of crashing startup:
+  // validate every method this adapter actually calls, not just the two
+  // promise methods. addListener/removeListeners are the RCTEventEmitter
+  // surface NativeEventEmitter needs, so a module missing them would throw
+  // inside new NativeEventEmitter() on the first render.
   const request = module.requestPushRegistration;
   const stashed = module.getStashedPushToken;
-  if (typeof request !== 'function' || typeof stashed !== 'function') {
+  const addListener = module.addListener;
+  const removeListeners = module.removeListeners;
+  if (
+    typeof request !== 'function' ||
+    typeof stashed !== 'function' ||
+    typeof addListener !== 'function' ||
+    typeof removeListeners !== 'function'
+  ) {
     return null;
   }
   return {
     requestPushRegistration: () => request(),
     getStashedPushToken: () => stashed(),
     addPushTokenListener(listener) {
-      // SAFETY: the raw module satisfies the NativeEventEmitter contract at
-      // runtime (it is an RCTEventEmitter); RN types only expose the narrow
-      // NativeModule surface, so the cast is confined to this constructor.
+      // SAFETY: every method this cast relies on is checked above, so the raw
+      // module really is an RCTEventEmitter here; RN types only expose the
+      // narrow NativeModule surface.
       const emitter = new NativeEventEmitter(
         module as unknown as NativeEventEmitterTarget,
       );
@@ -183,8 +182,15 @@ export type PushTokenSync = {
   request(): Promise<boolean>;
   /** Read the stashed native hex, normalize it and upload it. Never throws. */
   sync(target: PushTokenTarget): Promise<PushTokenResult>;
-  /** Upload on every foreground and on every native token event. */
-  start(getTarget: () => PushTokenTarget): () => void;
+  /**
+   * Upload on every foreground and on every native token event. `onResult`
+   * hears about each of those uploads, so the shell can show (or clear) its one
+   * error line without polling the store.
+   */
+  start(
+    getTarget: () => PushTokenTarget,
+    onResult?: (result: PushTokenResult) => void,
+  ): () => void;
 };
 
 export type PushTokenSyncDeps = {
@@ -231,27 +237,51 @@ export function createPushTokenSync(
       }
     },
     sync,
-    start(getTarget: () => PushTokenTarget): () => void {
+    start(
+      getTarget: () => PushTokenTarget,
+      onResult?: (result: PushTokenResult) => void,
+    ): () => void {
       // Without the native module there is no APNs token to upload, so the
       // foreground/event subscriptions would only add noise (jest hits this).
       if (native === null) return () => {};
+      const upload = (): void => {
+        sync(getTarget())
+          .then(result => onResult?.(result))
+          .catch(() => {});
+      };
       const disposers: Array<() => void> = [];
+      // Subscription setup runs synchronously during a React effect. A native
+      // module that is present but malformed (a missing addListener, a broken
+      // emitter) must leave push inert rather than take startup down: each hook
+      // is attempted on its own and a failure just drops that hook.
       if (appState !== null) {
-        const subscription = appState.addEventListener('change', state => {
-          if (state === 'active') sync(getTarget()).catch(() => {});
-        });
-        disposers.push(() => {
-          subscription.remove();
-        });
+        try {
+          const subscription = appState.addEventListener('change', state => {
+            if (state === 'active') upload();
+          });
+          disposers.push(() => {
+            subscription.remove();
+          });
+        } catch {
+          // foreground hook unavailable; the launch upload still runs
+        }
       }
-      if (native !== null) {
+      try {
         const remove = native.addPushTokenListener(() => {
-          sync(getTarget()).catch(() => {});
+          upload();
         });
         disposers.push(remove);
+      } catch {
+        // token events unavailable; getStashedPushToken still covers launch
       }
       return () => {
-        for (const dispose of disposers) dispose();
+        for (const dispose of disposers) {
+          try {
+            dispose();
+          } catch {
+            // already gone
+          }
+        }
       };
     },
   };

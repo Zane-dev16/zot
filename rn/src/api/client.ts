@@ -113,10 +113,37 @@ async function readResponse(res: HttpResponseLike): Promise<ParsedResponse> {
   return { status: res.status, text, json };
 }
 
+/**
+ * Read a transport response exactly once into {status, text, json}. Shared by
+ * every API call so the body is consumed once and a non-JSON body never throws.
+ */
+export async function parseResponse(
+  res: HttpResponseLike,
+): Promise<ParsedResponse> {
+  return readResponse(res);
+}
+
 function errorBody(json: unknown): string | null {
   if (json === null || typeof json !== 'object') return null;
   const value = (json as { error?: unknown }).error;
   return typeof value === 'string' && value !== '' ? value : null;
+}
+
+/**
+ * The single message-mapping rule for every failed call: the daemon's `{error}`
+ * body, else a short plain-text body, else the caller's fallback. Callers wrap
+ * it in an ApiError or display it directly.
+ */
+export function errorMessage(
+  json: unknown,
+  text: string,
+  fallback: string,
+): string {
+  const message = errorBody(json);
+  if (message !== null) return message;
+  const trimmed = text.trim();
+  if (trimmed !== '' && trimmed.length < 300) return trimmed;
+  return fallback;
 }
 
 function failure(
@@ -125,12 +152,7 @@ function failure(
   json: unknown,
   fallback: string,
 ): ApiError {
-  const message = errorBody(json);
-  if (message !== null) return new ApiError(message, status);
-  const trimmed = text.trim();
-  if (trimmed !== '' && trimmed.length < 300)
-    return new ApiError(trimmed, status);
-  return new ApiError(fallback, status);
+  return new ApiError(errorMessage(json, text, fallback), status);
 }
 
 function toAgentRun(value: unknown): AgentRun {

@@ -28,7 +28,8 @@ import type {
   PushTokenNative,
   PushTokenSync,
 } from '../api/pushTokens.ts';
-import { createPushTokenSync } from '../api/pushTokens.ts';
+import { createPushTokenSync, PUSH_REGISTER_ERROR } from '../api/pushTokens.ts';
+import type { PushTokenResult } from '../api/pushTokens.ts';
 import type { SessionController, SessionState } from './sessionController.ts';
 import { createSessionController } from './sessionController.ts';
 
@@ -146,27 +147,65 @@ export function SessionProvider(
   }, [controller]);
 
   // iOS asks for notification permission at launch (ios/ZotApp.swift:10-20).
+  // ZotNative rejects instead of always resolving true when APNs registration
+  // fails, and that (or an older always-true module throwing) is the one case
+  // worth the visible line: a denied permission resolves false and stays quiet.
   useEffect(() => {
-    pushSync.request().catch(() => {});
-  }, [pushSync]);
+    let live = true;
+    pushSync.request().catch(() => {
+      if (live) controller.setError(PUSH_REGISTER_ERROR);
+    });
+    return () => {
+      live = false;
+    };
+  }, [controller, pushSync]);
 
   // ContentView uploads the stashed hex after pairing/loading once a token is
-  // in hand (ios/ContentView.swift:99-101).
+  // in hand (ios/ContentView.swift:99-101). A real upload failure now shows
+  // Swift's line instead of being discarded; a skip (no device token) stays
+  // silent like Swift's `if let hex` guard, and a later success clears it.
+  const applyPushResult = useCallback(
+    (result: PushTokenResult): void => {
+      if (result.ok) {
+        if (controller.getState().error === PUSH_REGISTER_ERROR) {
+          controller.setError('');
+        }
+        return;
+      }
+      if ('error' in result) controller.setError(PUSH_REGISTER_ERROR);
+    },
+    [controller],
+  );
+
   useEffect(() => {
     if (token === null) return;
+    let live = true;
     pushSync
-      .sync({ host: controller.getState().host, authToken: token })
-      .catch(() => {});
-  }, [controller, pushSync, token]);
+      .sync({ host: currentHost, authToken: token })
+      .then(result => {
+        if (live) applyPushResult(result);
+      })
+      .catch(() => {
+        if (live) controller.setError(PUSH_REGISTER_ERROR);
+      });
+    return () => {
+      live = false;
+    };
+  }, [applyPushResult, controller, currentHost, pushSync, token]);
 
-  // Re-upload on every foreground and on every native token event.
+  // Re-upload on every foreground and on every native token event. Those uploads
+  // happen inside the push module, so it reports each result back here: without
+  // that, a retry that succeeded could never clear the line it set.
   useEffect(
     () =>
-      pushSync.start(() => ({
-        host: controller.getState().host,
-        authToken: controller.getState().token,
-      })),
-    [controller, pushSync],
+      pushSync.start(
+        () => ({
+          host: controller.getState().host,
+          authToken: controller.getState().token,
+        }),
+        applyPushResult,
+      ),
+    [applyPushResult, controller, pushSync],
   );
 
   useEffect(() => {

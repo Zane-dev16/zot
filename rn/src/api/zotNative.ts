@@ -9,6 +9,9 @@ import { NativeModules } from 'react-native';
 export type ZotNativeModule = {
   requestPushRegistration?: () => Promise<boolean>;
   getStashedPushToken?: () => Promise<string | null>;
+  /** From RCTEventEmitter: what NativeEventEmitter subscribes through. */
+  addListener?: (eventName: string) => void;
+  removeListeners?: (count: number) => void;
   launchArguments?: unknown;
   launchEnvironment?: unknown;
 };

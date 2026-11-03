@@ -214,6 +214,37 @@ describe('registration through setBakedPairSource (T5 hook point)', () => {
     expect(getBakedPairSource()).toBe(null);
   });
 
+  test('the narrowed ZOT_*-only export still builds the config', () => {
+    // ZotNative no longer ships the whole process environment/argv: it keeps
+    // each -ZOT_* flag, the value of a -flag value pair, and the three ZOT_* env
+    // keys. This is that exact payload shape.
+    const narrowed = launch(
+      [
+        BAKED_FLAG,
+        BAKED_SERVER_FLAG,
+        'http://192.168.68.56:8787',
+        BAKED_CODE_FLAG,
+        CODE,
+      ],
+      { ZOT_BAKED: '1' },
+    );
+    expect(bakedConfigFromLaunch(narrowed)).toEqual({
+      serverURL: 'http://192.168.68.56:8787',
+      code: CODE,
+    });
+
+    // The env-only payload shape has no arguments at all.
+    expect(
+      bakedConfigFromLaunch(
+        launch([], {
+          ZOT_BAKED: '1',
+          ZOT_SERVER_URL: 'http://192.168.68.56:8787',
+          ZOT_PAIR_CODE: CODE,
+        }),
+      ),
+    ).toEqual({ serverURL: 'http://192.168.68.56:8787', code: CODE });
+  });
+
   test('createBakedPairSource mirrors the config function', () => {
     const source = createBakedPairSource(
       launch([BAKED_FLAG, BAKED_SERVER_FLAG, SERVER, BAKED_CODE_FLAG, CODE]),
