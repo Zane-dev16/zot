@@ -4,18 +4,18 @@
 // injected clock types in stream.test.ts. Only what iosConfig.test.ts uses is
 // declared here, plus __dirname, which jest provides (CJS transform).
 
-declare module "node:fs" {
-	const fs: {
-		readFileSync(file: string, encoding: "utf8"): string;
-	};
-	export default fs;
+declare module 'node:fs' {
+  const fs: {
+    readFileSync(file: string, encoding: 'utf8'): string;
+  };
+  export default fs;
 }
 
-declare module "node:path" {
-	const path: {
-		join(...parts: string[]): string;
-	};
-	export default path;
+declare module 'node:path' {
+  const path: {
+    join(...parts: string[]): string;
+  };
+  export default path;
 }
 
 declare const __dirname: string;

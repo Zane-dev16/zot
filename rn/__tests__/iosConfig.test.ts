@@ -64,9 +64,7 @@ describe('ATS exceptions (ios/Info.plist:5-37)', () => {
   });
 
   test('arbitrary loads stay false and local networking stays on', () => {
-    expect(infoPlist).toMatch(
-      /<key>NSAllowsArbitraryLoads<\/key>\s*<false\/>/,
-    );
+    expect(infoPlist).toMatch(/<key>NSAllowsArbitraryLoads<\/key>\s*<false\/>/);
     expect(infoPlist).toMatch(/<key>NSAllowsLocalNetworking<\/key>\s*<true\/>/);
   });
 

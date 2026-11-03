@@ -18,8 +18,9 @@ jest.mock('react-native-keychain', () => ({
 
 // The provider renders nothing until the native insets event arrives, so the
 // package's own jest mock (CJS) is used for the whole suite.
-jest.mock('react-native-safe-area-context', () =>
-  require('react-native-safe-area-context/jest/mock').default,
+jest.mock(
+  'react-native-safe-area-context',
+  () => require('react-native-safe-area-context/jest/mock').default,
 );
 
 // The package ships its own jest mock as ESM (lib/module), which jest cannot

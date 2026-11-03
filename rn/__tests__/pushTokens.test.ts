@@ -244,9 +244,10 @@ describe('createPushTokenSync (ContentView load/pushUp + .zotPushToken)', () => 
       appState: null,
     });
 
-    await expect(
-      sync.sync({ host: HOST, authToken: null }),
-    ).resolves.toEqual({ ok: false, skipped: 'unpaired' });
+    await expect(sync.sync({ host: HOST, authToken: null })).resolves.toEqual({
+      ok: false,
+      skipped: 'unpaired',
+    });
     expect(fake.calls).toHaveLength(0);
   });
 
