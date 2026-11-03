@@ -304,6 +304,40 @@ describe('createPushTokenSync (ContentView load/pushUp + .zotPushToken)', () => 
     expect(native.requestPushRegistration).toHaveBeenCalledTimes(1);
   });
 
+  test('a rejected native registration propagates (not swallowed to false)', async () => {
+    // } else the shell cannot tell "declined" from "registration failed", and
+    // the failure is invisible again — the exact regression B4 fixes.
+    const native: PushTokenNative = {
+      requestPushRegistration: async () => {
+        throw new Error('APNs registration failed');
+      },
+      getStashedPushToken: async () => null,
+      addPushTokenListener: () => () => {},
+    };
+    const sync = createPushTokenSync({
+      transport: accepted().transport,
+      native,
+      appState: null,
+    });
+
+    await expect(sync.request()).rejects.toThrow('APNs registration failed');
+  });
+
+  test('a declined permission still resolves false rather than rejecting', async () => {
+    const native: PushTokenNative = {
+      requestPushRegistration: async () => false,
+      getStashedPushToken: async () => null,
+      addPushTokenListener: () => () => {},
+    };
+    const sync = createPushTokenSync({
+      transport: accepted().transport,
+      native,
+      appState: null,
+    });
+
+    await expect(sync.request()).resolves.toBe(false);
+  });
+
   test('is inert when the native module is absent (jest default)', async () => {
     const fake = accepted();
     const sync = createPushTokenSync({

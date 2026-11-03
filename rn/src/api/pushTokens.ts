@@ -178,7 +178,12 @@ function defaultAppState(): AppStateLike | null {
 export type PushTokenTarget = { host: string; authToken: string | null };
 
 export type PushTokenSync = {
-  /** Ask iOS for notification permission + APNs registration. Never throws. */
+  /**
+   * Ask iOS for notification permission + APNs registration. Resolves false
+   * when there is no native module or the user declined; REJECTS when the
+   * native request itself fails, so the shell can show its one error line
+   * (ZotNative rejects on an APNs registration failure).
+   */
   request(): Promise<boolean>;
   /** Read the stashed native hex, normalize it and upload it. Never throws. */
   sync(target: PushTokenTarget): Promise<PushTokenResult>;
@@ -229,12 +234,11 @@ export function createPushTokenSync(
 
   return {
     async request(): Promise<boolean> {
+      // No module means nothing to ask; that is not a failure.
       if (native === null) return false;
-      try {
-        return Boolean(await native.requestPushRegistration());
-      } catch {
-        return false;
-      }
+      // A native rejection is a real registration failure and must reach the
+      // caller: swallowing it here is what made the failure invisible before.
+      return Boolean(await native.requestPushRegistration());
     },
     sync,
     start(
