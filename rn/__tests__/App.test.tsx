@@ -12,6 +12,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
 import type { SessionDeps } from '../src/session/SessionProvider';
 import { createMemoryTokenStore } from '../src/api/client';
+import type { HostStore } from '../src/api/client';
 import { setBakedPairSource } from '../src/api/baked';
 import type { StreamHandle } from '../src/api/stream';
 import { fakeRouterTransport, pathOf } from '../test-support/fakes';
@@ -144,6 +145,30 @@ test('shows neither screen until the keychain read resolves', async () => {
   expect(exists(app, 'pair-code')).toBe(false);
 });
 
+test('a stored host with no token shows in the pair field', async () => {
+  // Wildcard signing: the keychain item cannot be read, so no token loads, but
+  // the host was persisted. useState(state.host) froze the pre-hydrate default,
+  // so the field showed the wrong server and a retry would pair against it.
+  const hostStore: HostStore = {
+    async loadHost() {
+      return 'http://10.0.0.9:9100';
+    },
+    async saveHost() {},
+    async clearHost() {},
+  };
+  const app = await renderApp({
+    tokenStore: createMemoryTokenStore(),
+    hostStore,
+    transport: daemon().transport,
+    connectStreamFn: stubConnector().connectStreamFn,
+  });
+
+  expect(exists(app, 'pair-code')).toBe(true);
+  expect(app.root.findByProps({ testID: 'pair-host' }).props.value).toBe(
+    'http://10.0.0.9:9100',
+  );
+});
+
 test('pairs, lists runs, sends a prompt and unpairs', async () => {
   const fake = daemon();
   const store = createMemoryTokenStore();
@@ -187,6 +212,10 @@ test('pairs, lists runs, sends a prompt and unpairs', async () => {
   expect(await store.loadToken()).toBe(null);
   expect(exists(app, 'pair-code')).toBe(true);
   expect(exists(app, 'runs-list')).toBe(false);
+  // A host the user typed survives signOut's reset to the default host.
+  expect(app.root.findByProps({ testID: 'pair-host' }).props.value).toBe(
+    '127.0.0.1:8787',
+  );
 });
 
 test('a bad code shows one error line and never calls the daemon', async () => {

@@ -34,6 +34,20 @@ function ZotRoot(): React.ReactElement {
   const [prompt, setPrompt] = useState('');
   const bakedGuard = useRef(createBakedOnceGuard());
 
+  // The controller's host can change under the pair field: hydrate() restores
+  // the persisted host, and signOut() resets it to the default. Follow those
+  // changes only while the user has not typed, so an edit is never clobbered
+  // mid-pair. Before this the field kept whatever state.host was at first
+  // render, so a stored host never showed when the token failed to load (the
+  // wildcard-signing case: keychain item unreadable, host still persisted).
+  const syncedHost = useRef(state.host);
+  useEffect(() => {
+    const previous = syncedHost.current;
+    if (state.host === previous) return;
+    syncedHost.current = state.host;
+    setHost(current => (current === previous ? state.host : current));
+  }, [state.host]);
+
   // Baked pair hook (ios/ContentView.swift:68-76): the native launch-args source
   // is registered at startup by registerNativeBakedPairSource() in index.js:13,
   // so this sees a source whenever the app was launched baked. At most one
