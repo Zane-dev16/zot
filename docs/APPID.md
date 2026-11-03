@@ -2,6 +2,8 @@
 
 **Context.** Bundle is com.zanishlabs.zot. Team is 36V92GAJBT. Wildcard profile lacks push rights. Push needs an explicit App ID. Measured live on loki on 2026-10-03.
 
+**React Native note.** Everything below records the Swift app's path: `ios/Zot.entitlements` and a simulator build with `CODE_SIGNING_ALLOWED = NO`. `rn/ios` is a second, separate project. It carries its own `rn/ios/ZotRN/Zot.entitlements` with `aps-environment` development, points `CODE_SIGN_ENTITLEMENTS` at it inside both app-target build settings, and has no `CODE_SIGNING_ALLOWED` line at all. So an RN device build requires real signing with the same explicit App ID profile for `com.zanishlabs.zot`, not the unsigned path below. The App ID plus profile steps apply unchanged.
+
 **Machine done.** All items measured today. No human action needed here.
 
 - Live decode shows XC Wildcard with 36V92GAJBT star and no aps-environment key. Log lives at /tmp/zot-appid-fix.log.

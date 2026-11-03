@@ -11,7 +11,7 @@ Local first daemon plus browser chat for personal automation.
 `src/events2.js` owns the stream event table plus replay.
 `web/app.js` owns post plus stream render plus reconnect plus approvals plus Activity.
 `rn` owns the React Native client. It is the primary iOS path going forward.
-`ios` owns the SwiftUI client. It still builds for the simulator and pairs, and it stays in tree until the React Native app passes the device gates in `BLOCKED.md`.
+`ios` owns the SwiftUI client. It last proved a simulator build plus install on 2026-10-01, and the simulator pair matrix on 2026-10-13; those proofs are historical. It stays in tree until the React Native app passes the device gates in `BLOCKED.md`.
 
 Clients.
 
@@ -23,6 +23,8 @@ Two iOS clients are in tree.
 
 The React Native app is device-unverified. No iOS build, simulator install, or on-device check has run for it. This host is Linux headless, with no Xcode, no simulator, and no iPhone. What runs here is jest, typecheck, lint, the stream frame regression check, and live tracer runs against a real daemon. Open human gates are listed in `BLOCKED.md`.
 
+`bash scripts/prove.sh` is the repo gate. It boots an isolated daemon, checks auth plus the web and ios files, and runs `node scripts/verify-stream-frames.js`. It also runs prettier, tsc, jest, and eslint from `rn/` when `rn/node_modules` exists, and prints `SKIP rn checks (installed deps absent)` when the install is missing, so a green gate never hides an unrun client check.
+
 Commands that work on this host.
 
 ```sh
@@ -31,6 +33,8 @@ npm test
 npm run typecheck
 npm run lint
 ```
+
+Run `bash scripts/prove.sh` from the repo root for the full local gate.
 
 Live tracers. Each boots its own daemon on an isolated port and database, then kills only the PID it started.
 
