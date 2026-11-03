@@ -1,3 +1,4 @@
+import type { Transport } from '../src/api/client';
 import { createMemoryTokenStore } from '../src/api/client';
 import {
   createSessionController,
@@ -98,7 +99,23 @@ describe('pair (ios/ContentView.swift:78-94)', () => {
     expect(controller.getState().token).toBe(null);
   });
 
-  test('falls back to the documented pair error for non-ApiError failures', async () => {
+  test('falls back to the documented pair error for a non-Error throw', async () => {
+    // messageOf() only forwards a message from an ApiError or an Error, so this
+    // is the shape that actually reaches PAIR_ERROR_FALLBACK.
+    const controller = createSessionController({
+      tokenStore: createMemoryTokenStore(),
+      transport: async () => {
+        // Transport may reject with anything, not only an Error.
+        throw Object.assign({}, { code: 'EPIPE' });
+      },
+    });
+
+    expect(await controller.pair('127.0.0.1:8787', '123456')).toBe(false);
+    expect(controller.getState().error).toBe(PAIR_ERROR_FALLBACK);
+    expect(PAIR_ERROR_FALLBACK).toBe('Pair failed. Check code and host.');
+  });
+
+  test('surfaces a transport Error message instead of the fallback', async () => {
     const controller = createSessionController({
       tokenStore: createMemoryTokenStore(),
       transport: async () => {
@@ -107,39 +124,100 @@ describe('pair (ios/ContentView.swift:78-94)', () => {
     });
 
     expect(await controller.pair('127.0.0.1:8787', '123456')).toBe(false);
+    // Documented precedence: a real Error message wins over the fallback.
     expect(controller.getState().error).toBe('Network request failed');
-    expect(PAIR_ERROR_FALLBACK).toBe('Pair failed. Check code and host.');
+    expect(controller.getState().error).not.toBe(PAIR_ERROR_FALLBACK);
+  });
+
+  test('re-pairing over an existing token replaces token, host and list', async () => {
+    // Pairing again is how a user moves to a second daemon, so the old token
+    // must not survive and the new host's list must replace the old one.
+    const fake = fakeRouterTransport(call => {
+      const key = call.method + ' ' + pathOf(call.url);
+      if (key === 'POST /api/v1/pair/confirm') {
+        const body = JSON.parse(String(call.body)) as { code: string };
+        return {
+          status: 201,
+          payload: { token: 'tok-' + body.code },
+        };
+      }
+      if (key === 'GET /api/v1/runs') {
+        return {
+          status: 200,
+          payload: {
+            runs: [{ id: 'r9', title: 'second', prompt: 'p', state: 'queued' }],
+          },
+        };
+      }
+      return { status: 404, payload: { error: 'not found' } };
+    });
+    const store = createMemoryTokenStore();
+    const controller = createSessionController({
+      tokenStore: store,
+      transport: fake.transport,
+    });
+
+    await controller.pair('127.0.0.1:8787', '111111');
+    expect(controller.getState().token).toBe('tok-111111');
+    expect(await store.loadToken()).toBe('tok-111111');
+
+    await controller.pair('10.0.0.9:9100', '222222');
+    const state = controller.getState();
+    expect(state.token).toBe('tok-222222');
+    expect(state.host).toBe('http://10.0.0.9:9100');
+    expect(await store.loadToken()).toBe('tok-222222');
+    // The list is the new host's, not a merge of both.
+    expect(state.runs).toEqual([
+      { id: 'r9', title: 'second', prompt: 'p', state: 'queued' },
+    ]);
+    expect(state.error).toBe('');
   });
 });
 
 describe('refresh (ios/ContentView.swift:96-105)', () => {
   test('reports the generic fetch error and keeps the old runs', async () => {
-    const fake = daemon();
+    // Same controller throughout: the list must survive the failed refresh,
+    // which a fresh controller's empty array could never prove.
+    let failing = false;
+    const ok = daemon();
+    const transport: Transport = async (url, init) => {
+      if (failing) {
+        return {
+          status: 500,
+          async text() {
+            return '';
+          },
+        };
+      }
+      return ok.transport(url, init);
+    };
     const controller = createSessionController({
-      tokenStore: createMemoryTokenStore(),
+      tokenStore: createMemoryTokenStore('tok-1'),
+      transport,
+    });
+    await controller.hydrate();
+    expect(controller.getState().runs).toEqual([RUN]);
+    expect(controller.getState().error).toBe('');
+
+    failing = true;
+    await controller.refresh();
+    expect(controller.getState().error).toBe(FETCH_ERROR);
+    expect(controller.getState().runs).toEqual([RUN]);
+  });
+
+  test('a revoked token (401) becomes the same single fetch line', async () => {
+    const fake = daemon({
+      'GET /api/v1/runs': { status: 401, payload: { error: 'unauthorized' } },
+    });
+    const controller = createSessionController({
+      tokenStore: createMemoryTokenStore('tok-revoked'),
       transport: fake.transport,
     });
-    await controller.pair('127.0.0.1:8787', '123456');
 
-    const failing = createSessionController({
-      tokenStore: createMemoryTokenStore('tok-1'),
-      transport: fake.transport,
-    });
-    await failing.hydrate();
-    expect(failing.getState().runs).toEqual([RUN]);
-
-    const broken = createSessionController({
-      tokenStore: createMemoryTokenStore('tok-1'),
-      transport: async () => ({
-        status: 500,
-        async text() {
-          return '';
-        },
-      }),
-    });
-    await broken.hydrate();
-    expect(broken.getState().error).toBe(FETCH_ERROR);
-    expect(broken.getState().runs).toEqual([]);
+    await controller.hydrate();
+    expect(controller.getState().token).toBe('tok-revoked');
+    expect(controller.getState().error).toBe(FETCH_ERROR);
+    expect(controller.getState().runs).toEqual([]);
   });
 
   test('does nothing without a token', async () => {
@@ -188,8 +266,19 @@ describe('send (ios/ContentView.swift:115-125)', () => {
       tokenStore: createMemoryTokenStore('tok-1'),
       transport: fake.transport,
     });
+    // Hydrate first: without a token send() returns at the token guard, so the
+    // empty-prompt guard this test names would never be reached (a mutation
+    // removing it left the old version of this test green).
+    await controller.hydrate();
+    expect(controller.getState().token).toBe('tok-1');
+    const before = fake.calls.length;
+
     expect(await controller.send('t', '   ')).toBe(false);
-    expect(fake.calls).toHaveLength(0);
+    expect(await controller.send('t', '\n\t ')).toBe(false);
+    expect(fake.calls).toHaveLength(before);
+    // No error line, no busy state: nothing was attempted.
+    expect(controller.getState().error).toBe('');
+    expect(controller.getState().busy).toBe(false);
   });
 
   test('reports the generic send error', async () => {
