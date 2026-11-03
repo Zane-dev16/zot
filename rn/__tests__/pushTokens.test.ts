@@ -6,6 +6,8 @@
  * @format
  */
 
+import { NativeModules } from 'react-native';
+
 import type { Transport } from '../src/api/client';
 import {
   createPushTokenSync,
@@ -378,6 +380,53 @@ describe('createPushTokenSync (ContentView load/pushUp + .zotPushToken)', () => 
     const stop = sync.start(() => TARGET);
     expect(typeof stop).toBe('function');
     stop();
+  });
+
+  test('the validator rejects a partly-malformed NativeModules.ZotNative', async () => {
+    // Regression: the test above injects the broken object below
+    // getNativePushTokenModule(), so deleting the four typeof checks there left
+    // the suite green (a reviewer's mutation C4-d passed 40/40). This goes
+    // through the real accessor with NativeModules.ZotNative stubbed.
+    const modules = NativeModules as unknown as Record<string, unknown>;
+    const original = modules.ZotNative;
+    const complete = {
+      requestPushRegistration: async () => true,
+      getStashedPushToken: async () => TOKEN,
+      addListener: () => {},
+      removeListeners: () => {},
+    };
+    try {
+      modules.ZotNative = { ...complete };
+      expect(getNativePushTokenModule()).not.toBe(null);
+
+      // Each method the adapter calls is load-bearing on its own.
+      for (const method of Object.keys(complete)) {
+        const partial: Record<string, unknown> = { ...complete };
+        delete partial[method];
+        modules.ZotNative = partial;
+        expect(getNativePushTokenModule()).toBe(null);
+      }
+
+      // A non-function value is as malformed as a missing one.
+      modules.ZotNative = { ...complete, removeListeners: 'yes' };
+      expect(getNativePushTokenModule()).toBe(null);
+
+      // And the adapter built from the real accessor stays inert instead of
+      // half-wired when validation refuses the module.
+      modules.ZotNative = {
+        requestPushRegistration: async () => true,
+        getStashedPushToken: async () => TOKEN,
+      };
+      const sync = createPushTokenSync({
+        transport: accepted().transport,
+        appState: fakeAppState(),
+      });
+      await expect(sync.request()).resolves.toBe(false);
+      expect(typeof sync.start(() => TARGET)).toBe('function');
+    } finally {
+      if (original === undefined) delete modules.ZotNative;
+      else modules.ZotNative = original;
+    }
   });
 
   test('a listener that throws at subscribe time leaves push inert', async () => {
