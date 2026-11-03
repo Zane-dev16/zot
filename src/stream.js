@@ -44,7 +44,10 @@ function encodeText(str) {
 	if (len < 126) {
 		head = Buffer.from([0x81, len]);
 	} else if (len < 65536) {
-		head = Buffer.alloc(3);
+		// RFC 6455 5.2: extended 16-bit length is a 2-byte header field, so the
+		// header is 2 marker bytes + 2 length bytes. Allocating 3 here threw
+		// ERR_OUT_OF_RANGE for every payload of 126 bytes or more.
+		head = Buffer.alloc(4);
 		head[0] = 0x81;
 		head[1] = 126;
 		head.writeUInt16BE(len, 2);
