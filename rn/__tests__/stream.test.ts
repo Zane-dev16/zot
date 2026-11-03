@@ -388,9 +388,11 @@ describe('applyRunEvent (web/app.js:190-235)', () => {
     ).toBe(base);
   });
 
-  test('a run.created for an unknown run adds it to the list (web parity)', () => {
+  test('a run.created for an unknown run prepends it (daemon order)', () => {
     // src/runner.js:244-258 publishes exactly this for scheduler-fired runs; the
     // phone stops polling while live, so dropping it hid the run entirely.
+    // GET /api/v1/runs is newest-first (src/api.js:395), so a live row joins at
+    // the top rather than at the bottom until the next refresh reorders it.
     const added = applyRunEvent(base, {
       id: '8',
       type: 'run.created',
@@ -399,15 +401,15 @@ describe('applyRunEvent (web/app.js:190-235)', () => {
       state: 'queued',
     });
     expect(added).toHaveLength(base.length + 1);
-    expect(added[2]).toEqual({
+    expect(added[0]).toEqual({
       id: 'r-missing',
       title: 'nightly job',
       prompt: '',
       state: 'queued',
     });
-    // The existing rows are untouched.
-    expect(added[0]).toBe(base[0]);
-    expect(added[1]).toBe(base[1]);
+    // The existing rows are untouched, just shifted down one.
+    expect(added[1]).toBe(base[0]);
+    expect(added[2]).toBe(base[1]);
   });
 
   test('a replayed run.created does not duplicate the row it added', () => {

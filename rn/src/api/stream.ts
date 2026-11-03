@@ -155,13 +155,16 @@ function eventPatch(event: StreamEvent): RunPatch | null {
 // Folds a stream event into the run list (web/app.js:190-235). Returns the same
 // array when nothing list-visible changed, so React can skip a re-render.
 //
-// A run.created for an id the list has never seen APPENDS a row, the way
+// A run.created for an id the list has never seen PREPENDS a row, the way
 // web/app.js:203-210 creates a run block on demand. Scheduler-fired and
 // browser-created runs publish exactly that event (src/runner.js:244-258) and,
 // because the phone stops polling while the socket is live, folding only into
-// known ids would hide them until the next manual refresh. Every other event
-// for an unknown id is still dropped: those carry no title, and the daemon's
-// list refresh is the authority for their details.
+// known ids would hide them until the next manual refresh. Prepending keeps the
+// live list in the daemon's order: GET /api/v1/runs answers newest-first
+// (src/api.js:395) and RunsScreen renders array order, so appending put a brand
+// new row at the bottom until the next refresh. Every other event for an
+// unknown id is still dropped: those carry no title, and the daemon's list
+// refresh is the authority for their details.
 export function applyRunEvent(
   runs: AgentRun[],
   event: StreamEvent,
@@ -181,7 +184,7 @@ export function applyRunEvent(
       prompt: typeof event.prompt === 'string' ? event.prompt : '',
       state: patch.state ?? '',
     };
-    return [...runs, created];
+    return [created, ...runs];
   }
   const current = runs[index];
   const title = patch.title ?? current.title;
