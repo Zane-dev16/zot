@@ -29,6 +29,48 @@
   "mode": "on",
   "subagent": "factory-agent",
   "check": {
-    "command": "bash scripts/prove.sh"
-  }
+    "command": "bash scripts/prove.sh\nbash '/root/zanish-factory/zanish-factory/scripts/check-commits.sh' \"$(git rev-parse --show-toplevel)\""
+  },
+  "identity": {
+    "name": "Irell Zane",
+    "email": "itsirellzane@gmail.com"
+  },
+  "commitScopes": [
+    "rn",
+    "ios",
+    "land",
+    "repo",
+    "daemon",
+    "stream",
+    "verify",
+    "memory",
+    "push",
+    "readme",
+    "scheduler",
+    "server",
+    "web",
+    "chatops",
+    "eval",
+    "factory",
+    "provider",
+    "skills",
+    "tools",
+    "voice",
+    "api",
+    "appid",
+    "auth",
+    "backend",
+    "blocked",
+    "db",
+    "deploy",
+    "events",
+    "pair",
+    "plan",
+    "polish",
+    "portal",
+    "prove",
+    "router",
+    "runs",
+    "stubs"
+  ]
 }
