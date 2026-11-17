@@ -1,0 +1,377 @@
+// Boot and effects. main.js owns every side effect (fetch, websocket, timers,
+// localStorage) and dispatches results into the single store; render.js and the
+// view modules are the only DOM writers.
+
+import * as api from "./api.js";
+import { firstLine } from "./format.js";
+import { createRenderer } from "./render.js";
+import { createStream } from "./stream.js";
+import { createStore, initialState, selectCanFetch } from "./store.js";
+
+const TOKEN_KEY = "zot.token";
+const SINCE_KEY = "zot.since";
+const VARIANT_KEY = "zot.variant";
+const DEFAULT_VARIANT = "console";
+const VIEWS = ["chat", "approvals", "activity", "pairing"];
+const VARIANTS = ["console", "ledger", "tty"];
+const HEALTH_POLL_MS = 15000;
+const TICK_MS = 5000;
+
+/** @returns {string} */
+function readStorage(key) {
+	try {
+		return localStorage.getItem(key) || "";
+	} catch {
+		return "";
+	}
+}
+
+/**
+ * @param {string} key
+ * @param {string} value
+ */
+function writeStorage(key, value) {
+	try {
+		if (value) localStorage.setItem(key, value);
+		else localStorage.removeItem(key);
+	} catch {
+		// private mode: the session still works, it just will not survive reload
+	}
+}
+
+/** @returns {string} view named by the URL hash, or "" */
+function hashView() {
+	const match = /^#\/([a-z]+)/.exec(typeof location === "undefined" ? "" : location.hash || "");
+	if (!match) return "";
+	return VIEWS.includes(match[1]) ? match[1] : "";
+}
+
+/** @returns {string} */
+function queryVariant() {
+	if (typeof location === "undefined") return "";
+	try {
+		const value = new URLSearchParams(location.search).get("variant") || "";
+		return VARIANTS.includes(value) ? value : "";
+	} catch {
+		return "";
+	}
+}
+
+const store = createStore(initialState());
+const getState = () => store.getState();
+const doc = document;
+
+let loadStamp = 0;
+let healthTimer = null;
+let hintTimer = null;
+let stream = null;
+let rendering = false;
+
+/** @type {{route: Function, variant: Function, saveToken: Function, signOut: Function, refreshRuns: Function, send: Function, approve: Function, cancel: Function, select: Function, inspectorToggle: Function, inspectorTab: Function, goApprove: Function, retryNow: Function, filter: Function}} */
+const actions = {
+	/**
+	 * @param {string} view
+	 */
+	route(view) {
+		const next = VIEWS.includes(view) ? view : "chat";
+		store.dispatch({ type: "ui.route", view: next });
+		const target = "#/" + next;
+		if (location.hash !== target) location.hash = target;
+		const title = doc.getElementById("viewTitle");
+		if (title && typeof title.focus === "function") title.focus();
+	},
+
+	/**
+	 * @param {string} variant
+	 */
+	variant(variant) {
+		const next = VARIANTS.includes(variant) ? variant : DEFAULT_VARIANT;
+		writeStorage(VARIANT_KEY, next);
+		store.dispatch({ type: "ui.variant", variant: next });
+	},
+
+	/**
+	 * @param {string} raw
+	 */
+	saveToken(raw) {
+		const token = String(raw == null ? "" : raw).trim();
+		if (!token) {
+			store.dispatch({ type: "auth.error", error: "paste a device token first" });
+			return;
+		}
+		writeStorage(TOKEN_KEY, token);
+		store.dispatch({ type: "auth.token", token });
+		actions.route("chat");
+		connect();
+		refreshRuns();
+	},
+
+	signOut() {
+		writeStorage(TOKEN_KEY, "");
+		writeStorage(SINCE_KEY, "");
+		if (stream) stream.close();
+		store.dispatch({ type: "auth.signOut" });
+		store.dispatch({ type: "conn.set", status: "auth", attempt: 0 });
+		actions.route("pairing");
+	},
+
+	refreshRuns() {
+		return refreshRuns();
+	},
+
+	/**
+	 * @param {string} prompt
+	 */
+	send(prompt) {
+		return send(prompt);
+	},
+
+	/**
+	 * @param {string} id
+	 */
+	approve(id) {
+		return transition(id, "approve");
+	},
+
+	/**
+	 * @param {string} id
+	 */
+	cancel(id) {
+		return transition(id, "cancel");
+	},
+
+	/**
+	 * @param {string} id
+	 */
+	select(id) {
+		store.dispatch({ type: "ui.select", id });
+	},
+
+	/**
+	 * @param {boolean} open
+	 */
+	inspectorToggle(open) {
+		store.dispatch({ type: "ui.inspectorToggle", open });
+	},
+
+	/**
+	 * @param {string} tab
+	 */
+	inspectorTab(tab) {
+		store.dispatch({ type: "ui.inspectorTab", tab: tab === "events" ? "events" : "details" });
+	},
+
+	goApprove() {
+		actions.route("approvals");
+	},
+
+	retryNow() {
+		store.dispatch({ type: "conn.set", status: "connecting", attempt: 0 });
+		loadHealthz();
+		refreshRuns();
+		if (stream) stream.retryNow();
+	},
+
+	/**
+	 * @param {string} filter
+	 */
+	filter(filter) {
+		store.dispatch({ type: "ui.activityFilter", filter });
+	},
+};
+
+const renderer = createRenderer(doc, actions);
+
+store.subscribe((state) => {
+	if (rendering) return;
+	rendering = true;
+	try {
+		renderer.update(state);
+	} finally {
+		rendering = false;
+	}
+});
+
+/**
+ * @param {string} error
+ */
+function rejectAuth(error) {
+	store.dispatch({ type: "auth.rejected", error });
+	store.dispatch({ type: "conn.set", status: "auth" });
+}
+
+/** Fetch the run list. Never called without a token (selectCanFetch gate). */
+async function refreshRuns() {
+	const state = getState();
+	if (!selectCanFetch(state)) return;
+	const stamp = ++loadStamp;
+	store.dispatch({ type: "runs.loadStart", stamp });
+	try {
+		const runs = await api.listRuns(state.auth.token);
+		store.dispatch({ type: "runs.loadOk", runs, stamp, at: Date.now() });
+		store.dispatch({ type: "auth.verify" });
+	} catch (err) {
+		if (err && err.status === 401) rejectAuth("the daemon rejected that token");
+		store.dispatch({
+			type: "runs.loadErr",
+			stamp,
+			error: err && err.status === 401 ? "auth failed" : (err && err.message) || "load failed",
+			status: err && err.status,
+		});
+	}
+}
+
+/** @param {string} prompt */
+async function send(prompt) {
+	const state = getState();
+	if (!selectCanFetch(state)) {
+		store.dispatch({ type: "chat.hint", hint: "auth required" });
+		return;
+	}
+	store.dispatch({ type: "chat.hint", hint: "sending…" });
+	try {
+		const run = await api.createRun(state.auth.token, {
+			title: firstLine(prompt).slice(0, 60),
+			prompt,
+		});
+		if (run) store.dispatch({ type: "run.upsert", run });
+		store.dispatch({ type: "chat.hint", hint: "queued · waiting" });
+		refreshRuns();
+	} catch (err) {
+		if (err && err.status === 401) rejectAuth("the daemon rejected that token");
+		store.dispatch({ type: "chat.hint", hint: (err && err.message) || "could not send" });
+		return;
+	}
+	if (hintTimer) clearTimeout(hintTimer);
+	hintTimer = setTimeout(() => store.dispatch({ type: "chat.hint", hint: "" }), 5000);
+}
+
+/**
+ * @param {string} id
+ * @param {"approve"|"cancel"} kind
+ */
+async function transition(id, kind) {
+	const state = getState();
+	if (!selectCanFetch(state) || !id) return;
+	store.dispatch({ type: "approve.begin", id });
+	try {
+		const run = kind === "approve" ? await api.approveRun(state.auth.token, id) : await api.cancelRun(state.auth.token, id);
+		store.dispatch({ type: "approve.settle", id, run });
+	} catch (err) {
+		if (err && err.status === 401) {
+			rejectAuth("the daemon rejected that token");
+			store.dispatch({ type: "approve.settle", id, error: "not authorized" });
+			return;
+		}
+		if (err && err.status === 409) {
+			store.dispatch({ type: "approve.settle", id, error: "state changed — reloaded" });
+			try {
+				const run = await api.getRun(state.auth.token, id);
+				if (run) store.dispatch({ type: "run.upsert", run });
+			} catch {
+				// the honest message above stands
+			}
+			return;
+		}
+		store.dispatch({ type: "approve.settle", id, error: (err && err.message) || "approval failed" });
+	}
+}
+
+async function loadHealthz() {
+	try {
+		const health = await api.healthz();
+		store.dispatch({
+			type: "daemon.loaded",
+			status: health.state || "unknown",
+			version: health.version,
+			uptimeMs: health.uptimeMs,
+		});
+	} catch (err) {
+		store.dispatch({ type: "daemon.error", error: (err && err.message) || "unreachable" });
+	}
+}
+
+async function loadBuild() {
+	try {
+		const manifest = await api.buildManifest();
+		store.dispatch({ type: "builds.loaded", hash: manifest.sourceHash, moduleCount: manifest.moduleCount });
+	} catch (err) {
+		store.dispatch({ type: "builds.error", error: (err && err.message) || "build unknown" });
+	}
+}
+
+/** Probe the token when the socket closes while it had been live. */
+async function probeAuth() {
+	const state = getState();
+	if (!selectCanFetch(state)) return;
+	try {
+		await api.listRuns(state.auth.token);
+	} catch (err) {
+		if (err && err.status === 401) {
+			rejectAuth("the daemon rejected that token");
+			if (stream) stream.close();
+		}
+	}
+}
+
+function connect() {
+	if (!stream) {
+		stream = createStream({
+			getToken: () => getState().auth.token,
+			getCursor: () => "",
+			onFrame: (frame) => store.dispatch({ type: "stream.frame", frame }),
+			onStatus: (status) => {
+				store.dispatch({
+					type: "conn.set",
+					status: status.status,
+					attempt: status.attempt,
+					backoffMs: status.backoffMs,
+				});
+				if (status.status === "live") loadHealthz();
+			},
+			onCloseWhileLive: () => probeAuth(),
+		});
+	}
+	stream.connect();
+}
+
+function boot() {
+	const variant = queryVariant() || readStorage(VARIANT_KEY) || DEFAULT_VARIANT;
+	store.dispatch({ type: "ui.variant", variant: VARIANTS.includes(variant) ? variant : DEFAULT_VARIANT });
+	const token = readStorage(TOKEN_KEY).trim();
+	store.dispatch({ type: "auth.boot", token });
+	const initialView = hashView() || (token ? "chat" : "pairing");
+	store.dispatch({ type: "ui.route", view: initialView });
+	loadBuild();
+	loadHealthz();
+	if (healthTimer) clearInterval(healthTimer);
+	healthTimer = setInterval(loadHealthz, HEALTH_POLL_MS);
+	if (token) {
+		connect();
+		refreshRuns();
+	} else {
+		store.dispatch({ type: "conn.set", status: "auth", attempt: 0 });
+	}
+	renderer.update(getState());
+	if (typeof setInterval === "function") setInterval(() => renderer.update(getState()), TICK_MS);
+}
+
+window.addEventListener("hashchange", () => {
+	const view = hashView();
+	if (!view) return;
+	if (view !== getState().ui.view) store.dispatch({ type: "ui.route", view });
+});
+
+window.addEventListener("offline", () => {
+	store.dispatch({ type: "conn.set", status: "offline", attempt: 0 });
+	if (stream) stream.pause();
+});
+
+window.addEventListener("online", () => {
+	store.dispatch({ type: "conn.set", status: "connecting", attempt: 0 });
+	if (stream) stream.resume();
+	else if (getState().auth.token) connect();
+	loadHealthz();
+});
+
+boot();

@@ -46,10 +46,10 @@ echo "PASS unauthorized api returns 401 with JSON error"
 
 node scripts/verify-stream-frames.js
 
-test -f web/index.html
-test -f web/app.js
-test -f web/style.css
-echo "PASS web files exist"
+# The web client is native ES modules: prove the module graph, the committed
+# build manifest, and the screenshot selector contract offline, before any
+# browser runs. A stale or absent web/build.json fails here; it never SKIPs.
+node scripts/verify-web.mjs
 
 test -f ios/ZotApp.swift
 test -f ios/Keychain.swift

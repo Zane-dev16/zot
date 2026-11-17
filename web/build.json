@@ -1,0 +1,22 @@
+{
+	"version": 1,
+	"moduleCount": 10,
+	"sourceHash": "465caf3b66d483d02006b945baa41fa8c2c61e2e0ae07e393f532789134b295d",
+	"files": {
+		"css/components.css": "sha256:0b2a32c0e06f158aae0c14a9d573483efe4d1f4b610cfcf61d98721af17a5f8c",
+		"css/layout.css": "sha256:1e0552204afb054d77b7012ea866da856beb800f392c7c0298e1348bfc25ca54",
+		"css/tokens.css": "sha256:42523d62078b659d6358680cf85acdd26725bafb3c612192b55da28c2c2030e0",
+		"index.html": "sha256:8b623ef4af48d53ad2655162ec2fdb8c4e93fce6491fabee3a2bed5e7b43ea6d",
+		"js/api.js": "sha256:c8ba7fe71cf91b596efd2719de004949d6f21732056262077c7dee023ec656b2",
+		"js/dom.js": "sha256:956622dc8553990b3816a294dc20159a7140ea36665d3f5793ace2305868c751",
+		"js/format.js": "sha256:4064e239f1b2e38f9a235f5f5adde133f1f31bec75930b3b6db0cdd4190047ab",
+		"js/main.js": "sha256:19ccf240a38184f5af4adf90336d32ebd3ab0fea3ab8217203140f804848bcf8",
+		"js/render.js": "sha256:6184a9df792ad2746c094681adef04a91f688f8510d32d6276bb3ddceac44870",
+		"js/store.js": "sha256:ff7b6fb7a5adf51712595adb7d0e585bc3afdf08e676308f8642c86b28df083c",
+		"js/stream.js": "sha256:d06ccafa04db66e92d3c4d79c1c4ebeed4f98a5f79304985e3eb5232874a2e71",
+		"js/views/activity.js": "sha256:38034bbd47fc967530a00838309700398473c823398b28244e319aef4709f2a6",
+		"js/views/chat.js": "sha256:c17c3aec11dbf1380baec34fcbab627a554b6b0f8e7d4ac1a83dbaeaacbbc384",
+		"js/views/pairing.js": "sha256:89a5c4849f8148d752aa4d7600d2b1757dfac60faf0d6853c0194cf9f42b0f10"
+	},
+	"builtAt": "2026-11-17T17:35:55.151Z"
+}

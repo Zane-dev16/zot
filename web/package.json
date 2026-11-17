@@ -1,0 +1,6 @@
+{
+	"name": "zot-web",
+	"private": true,
+	"type": "module",
+	"description": "Native ES modules served directly by src/daemon2.js; no bundler (ADR-1). This file only marks the module type for Node-side tooling."
+}

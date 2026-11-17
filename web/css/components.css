@@ -1,0 +1,592 @@
+/* Component layer: chips, rows, buttons, inputs, empty/error states.
+   Rows are 28px, hairlines are 1px var(--line), radius stays at 4px. */
+
+/* --- connection chip ---------------------------------------------------- */
+#status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 22px;
+	padding: 0 8px;
+	border: 1px solid var(--line-strong);
+	border-radius: 999px;
+	font-size: var(--fs-xs);
+	font-family: var(--mono);
+	color: var(--muted);
+	white-space: nowrap;
+}
+
+#status::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--state-queued);
+}
+
+#status[data-kind="live"] {
+	color: var(--state-done);
+	border-color: color-mix(in srgb, var(--state-done) 40%, var(--line));
+}
+
+#status[data-kind="live"]::before {
+	background: var(--state-done);
+}
+
+#status[data-kind="connecting"]::before,
+#status[data-kind="reconnecting"]::before {
+	background: var(--state-waiting);
+}
+
+#status[data-kind="reconnecting"] {
+	color: var(--state-waiting);
+}
+
+#status[data-kind="offline"]::before {
+	background: var(--state-queued);
+}
+
+#status[data-kind="auth"] {
+	color: var(--state-failed);
+}
+
+#status[data-kind="auth"]::before {
+	background: var(--state-failed);
+}
+
+#retryCount {
+	font-family: var(--mono);
+	font-size: var(--fs-xs);
+	color: var(--muted);
+}
+
+/* --- buttons and inputs ------------------------------------------------- */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: 26px;
+	padding: 0 10px;
+	border: 1px solid var(--line-strong);
+	border-radius: var(--radius);
+	background: var(--panel-2);
+	color: var(--text);
+	font: inherit;
+	font-size: var(--fs-sm);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+	border-color: var(--accent);
+	color: #fff;
+}
+
+.btn:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.btn-ghost {
+	background: transparent;
+	border-color: var(--line);
+	color: var(--muted);
+}
+
+.btn[data-action="approve"] {
+	border-color: color-mix(in srgb, var(--state-done) 55%, var(--line));
+	color: var(--state-done);
+}
+
+.btn[data-action="cancel"] {
+	border-color: color-mix(in srgb, var(--state-failed) 45%, var(--line));
+	color: var(--state-failed);
+}
+
+input,
+select {
+	height: 26px;
+	padding: 0 8px;
+	border: 1px solid var(--line-strong);
+	border-radius: var(--radius);
+	background: var(--bg);
+	color: var(--text);
+	font: inherit;
+	font-size: var(--fs-sm);
+	min-width: 0;
+}
+
+input::placeholder {
+	color: var(--muted);
+}
+
+select {
+	height: 22px;
+	padding: 0 4px;
+	font-size: var(--fs-xs);
+	font-family: var(--mono);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--gap);
+	min-width: 0;
+}
+
+.row input {
+	flex: 1 1 auto;
+}
+
+/* --- shell bits --------------------------------------------------------- */
+.viewBar {
+	display: flex;
+	align-items: center;
+	gap: var(--gap);
+	flex-wrap: wrap;
+}
+
+#activityFilter {
+	display: inline-flex;
+	gap: 2px;
+}
+
+#activityFilter button {
+	height: 22px;
+	padding: 0 8px;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: transparent;
+	color: var(--muted);
+	font: inherit;
+	font-size: var(--fs-xs);
+	font-family: var(--mono);
+	cursor: pointer;
+}
+
+#activityFilter button[aria-pressed="true"] {
+	color: var(--text);
+	border-color: var(--line-strong);
+	background: var(--panel-2);
+}
+
+#activityCount {
+	font-family: var(--mono);
+	font-size: var(--fs-xs);
+	color: var(--muted);
+	margin-left: auto;
+}
+
+#activityError,
+#approvalsError,
+#tokenError {
+	color: var(--state-failed);
+	font-size: var(--fs-sm);
+}
+
+.empty {
+	color: var(--muted);
+	font-size: var(--fs-sm);
+	padding: var(--gap) 0;
+}
+
+/* --- chat thread -------------------------------------------------------- */
+#log {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-height: 0;
+}
+
+#log article {
+	display: grid;
+	grid-template-columns: 3px minmax(0, 1fr);
+	column-gap: 10px;
+	align-items: start;
+	padding: 7px 10px 7px 0;
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+}
+
+#log article::before {
+	content: "";
+	grid-row: 1 / -1;
+	align-self: stretch;
+	width: 3px;
+	background: var(--state-queued);
+	border-radius: var(--radius) 0 0 var(--radius);
+}
+
+#log article[data-state="running"]::before {
+	background: var(--state-running);
+}
+
+#log article[data-state="waiting_tool"]::before {
+	background: var(--state-waiting);
+}
+
+#log article[data-state="done"]::before {
+	background: var(--state-done);
+}
+
+#log article[data-state="failed"]::before {
+	background: var(--state-failed);
+}
+
+#log article[data-state="cancelled"]::before {
+	background: var(--state-cancelled);
+}
+
+#log article > * {
+	grid-column: 2;
+}
+
+.runHead {
+	display: flex;
+	align-items: baseline;
+	gap: var(--gap);
+	min-width: 0;
+}
+
+.runTitle {
+	font-weight: 600;
+	font-size: var(--fs-md);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+.runBadge {
+	font-family: var(--mono);
+	font-size: var(--fs-xs);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	padding: 1px 6px;
+	border: 1px solid currentColor;
+	border-radius: 999px;
+	white-space: nowrap;
+	color: var(--state-queued);
+}
+
+.runBadge[data-state="running"] {
+	color: var(--state-running);
+}
+
+.runBadge[data-state="waiting_tool"] {
+	color: var(--state-waiting);
+}
+
+.runBadge[data-state="done"] {
+	color: var(--state-done);
+}
+
+.runBadge[data-state="failed"] {
+	color: var(--state-failed);
+}
+
+.runBadge[data-state="cancelled"] {
+	color: var(--state-cancelled);
+}
+
+.runMeta {
+	font-size: var(--fs-xs);
+	color: var(--muted);
+	white-space: nowrap;
+}
+
+.runTokens {
+	font-family: var(--mono);
+	font-size: var(--fs-code);
+	white-space: pre-wrap;
+	word-break: break-word;
+	margin-top: 4px;
+	max-height: 220px;
+	overflow: auto;
+}
+
+.runToolNote {
+	font-size: var(--fs-xs);
+	color: var(--state-waiting);
+	margin-top: 4px;
+}
+
+.runToolNote:empty {
+	display: none;
+}
+
+.approvalRow {
+	display: flex;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+/* --- composer ----------------------------------------------------------- */
+#composer {
+	position: sticky;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--gap);
+	padding: 8px;
+	background: var(--panel-2);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+}
+
+#composer input {
+	flex: 1 1 auto;
+	height: 28px;
+	background: var(--bg);
+}
+
+#composerHint {
+	font-size: var(--fs-xs);
+	color: var(--muted);
+	font-family: var(--mono);
+	white-space: nowrap;
+}
+
+/* --- approvals queue ---------------------------------------------------- */
+#approvals,
+#activity {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+#approvals li,
+#activity li {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	min-width: 0;
+}
+
+#approvals li {
+	padding: 6px 8px;
+}
+
+#approvals li[data-state="waiting_tool"] {
+	border-color: color-mix(in srgb, var(--state-waiting) 45%, var(--line));
+}
+
+#approvals .approvalTitle {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	min-width: 0;
+}
+
+/* --- activity ledger ---------------------------------------------------- */
+#activity li {
+	display: flex;
+	align-items: center;
+}
+
+button.activityRun {
+	flex: 1 1 auto;
+	justify-content: flex-start;
+	display: flex;
+	align-items: center;
+	height: var(--row);
+	padding: 0 10px;
+	border: 0;
+	border-radius: var(--radius);
+	background: transparent;
+	color: var(--text);
+	font: inherit;
+	font-size: var(--fs-sm);
+	text-align: left;
+	cursor: pointer;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+button.activityRun:hover {
+	background: var(--panel-2);
+}
+
+/* --- pairing card ------------------------------------------------------- */
+#auth {
+	display: flex;
+	flex-direction: column;
+	gap: var(--gap);
+	max-width: 640px;
+	padding: var(--pad);
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: 6px;
+}
+
+.pairTop {
+	display: flex;
+	align-items: center;
+	gap: var(--gap);
+	flex-wrap: wrap;
+}
+
+#pairCode {
+	font-family: var(--mono);
+	font-size: var(--fs-xl);
+	letter-spacing: 0.18em;
+	padding: 0 10px;
+	color: var(--muted);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	background: var(--bg);
+}
+
+#pairCode[data-kind="code"] {
+	color: var(--text);
+	border-color: var(--state-waiting);
+}
+
+#pairExpiry {
+	font-family: var(--mono);
+	font-size: var(--fs-xs);
+	color: var(--muted);
+}
+
+#pairStatus[data-kind="code"],
+#pairStatus[data-kind="confirming"],
+#pairStatus[data-kind="requesting"] {
+	color: var(--state-waiting);
+}
+
+#pairStatus[data-kind="paired"] {
+	color: var(--state-done);
+}
+
+#pairStatus[data-kind="expired"],
+#pairStatus[data-kind="mismatch"],
+#pairStatus[data-kind="no-pending"],
+#pairStatus[data-kind="rate-limited"],
+#pairStatus[data-kind="error"] {
+	color: var(--state-failed);
+}
+
+#pairNote,
+#deviceSummary {
+	font-size: var(--fs-sm);
+	color: var(--muted);
+}
+
+#deviceSummary:empty,
+#tokenError:empty,
+#pairExpiry:empty {
+	display: none;
+}
+
+#pairFallback > summary {
+	cursor: pointer;
+	font-size: var(--fs-sm);
+	color: var(--muted);
+	padding: 4px 0;
+}
+
+#pairFallback .row {
+	margin: 4px 0;
+}
+
+#auth #signOut {
+	align-self: flex-start;
+}
+
+/* --- inspector ---------------------------------------------------------- */
+#inspectorTabs button {
+	height: 24px;
+	padding: 0 10px;
+	border: 1px solid transparent;
+	border-radius: var(--radius);
+	background: transparent;
+	color: var(--muted);
+	font: inherit;
+	font-size: var(--fs-sm);
+	cursor: pointer;
+}
+
+#inspectorTabs button[aria-selected="true"] {
+	color: var(--text);
+	background: var(--panel-2);
+	border-color: var(--line-strong);
+}
+
+#inspectorBody {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	font-size: var(--fs-sm);
+	min-width: 0;
+}
+
+.detailRow {
+	display: grid;
+	grid-template-columns: 92px minmax(0, 1fr);
+	gap: 8px;
+	align-items: baseline;
+}
+
+.detailRow dt {
+	color: var(--muted);
+	font-size: var(--fs-xs);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.detailRow dd {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	font-family: var(--mono);
+	font-size: var(--fs-code);
+}
+
+.inspectorPrompt {
+	white-space: pre-wrap;
+	font-family: var(--mono);
+	font-size: var(--fs-code);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	padding: 8px;
+	overflow: auto;
+}
+
+.toolEvent {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 8px;
+	align-items: baseline;
+	padding: 4px 0;
+	border-bottom: 1px solid var(--line);
+	font-family: var(--mono);
+	font-size: var(--fs-code);
+}
+
+.toolEvent .toolEventName {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.toolEvent .toolEventWhen {
+	color: var(--muted);
+	font-size: var(--fs-xs);
+	white-space: nowrap;
+}
+
+.toolEvent[data-source="request"] .toolEventName {
+	color: var(--state-waiting);
+}
+
+.toolEvent[data-source="result"] .toolEventName {
+	color: var(--state-done);
+}

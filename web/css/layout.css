@@ -1,0 +1,230 @@
+/* Shell geometry: 208px sidebar | main | 380px inspector under a 40px topbar.
+   The three data attributes on #app (view, conn, variant) are the only inputs
+   layout variants key off; the 1280x800 gate viewport is the primary target. */
+
+#app {
+	display: grid;
+	grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--inspector-w);
+	grid-template-rows: var(--topbar-h) minmax(0, 1fr);
+	min-height: 100vh;
+	height: 100vh;
+	background: var(--bg);
+}
+
+#topbar {
+	grid-column: 1 / -1;
+	grid-row: 1;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 0 var(--pad);
+	background: var(--panel-2);
+	border-bottom: 1px solid var(--line);
+	min-width: 0;
+	overflow: hidden;
+}
+
+#brand {
+	font-weight: 600;
+	font-size: var(--fs-sm);
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+
+#viewTitle {
+	font-size: var(--fs-sm);
+	font-weight: 500;
+	color: var(--muted);
+	padding-left: 10px;
+	margin-left: 2px;
+	border-left: 1px solid var(--line-strong);
+	white-space: nowrap;
+}
+
+#topbar #daemon,
+#topbar #build {
+	font-family: var(--mono);
+	font-size: var(--fs-xs);
+	color: var(--muted);
+	white-space: nowrap;
+}
+
+#topbar #daemon[data-kind="ready"] {
+	color: var(--state-done);
+}
+
+#topbar #daemon[data-kind="unreachable"] {
+	color: var(--state-failed);
+}
+
+#sidebar {
+	grid-column: 1;
+	grid-row: 2;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: var(--gap) 6px;
+	background: var(--panel);
+	border-right: 1px solid var(--line);
+	overflow: auto;
+	min-width: 0;
+}
+
+#sidebar a {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	height: var(--row);
+	padding: 0 8px;
+	border-radius: var(--radius);
+	color: var(--text);
+	font-size: var(--fs-sm);
+}
+
+#sidebar a:hover {
+	background: var(--panel-2);
+	text-decoration: none;
+}
+
+#sidebar a[aria-current="page"] {
+	background: var(--panel-2);
+	box-shadow: inset 2px 0 0 var(--accent);
+	color: #fff;
+}
+
+#runsCount,
+#approvalsCount {
+	font-family: var(--mono);
+	font-size: var(--fs-xs);
+	color: var(--muted);
+}
+
+#approvalsCount {
+	color: var(--state-waiting);
+	font-weight: 600;
+}
+
+#main {
+	grid-column: 2;
+	grid-row: 2;
+	padding: var(--pad);
+	overflow: auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+/* One view is active at a time. Until navigation ships with the approvals
+   milestone the inactive views stay laid out (a single scroll column) so the
+   pre-existing screenshot harness can still drive #activity without a nav
+   click. The approvals milestone flips this to display:none and updates the
+   harness to click #navApprovals / #navActivity first. */
+.view {
+	display: flex;
+	flex-direction: column;
+	gap: var(--gap);
+	min-width: 0;
+	min-height: 0;
+}
+
+.view {
+	border-top: 1px solid var(--line);
+	padding-top: var(--pad);
+}
+
+#view-chat {
+	border-top: 0;
+	padding-top: 0;
+}
+
+#inspector {
+	grid-column: 3;
+	grid-row: 2;
+	display: flex;
+	flex-direction: column;
+	gap: var(--gap);
+	padding: var(--pad);
+	background: var(--panel);
+	border-left: 1px solid var(--line);
+	overflow: auto;
+	min-width: 0;
+}
+
+.inspectorHead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid var(--line);
+}
+
+#inspectorTitle {
+	font-size: var(--fs-sm);
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+#inspectorTabs {
+	display: flex;
+	gap: 2px;
+}
+
+@media (max-width: 1100px) {
+	#app {
+		grid-template-columns: 176px minmax(0, 1fr);
+	}
+
+	#inspector {
+		grid-column: 1 / -1;
+		grid-row: 3;
+		border-left: 0;
+		border-top: 1px solid var(--line);
+		max-height: 45vh;
+	}
+
+	#app {
+		grid-template-rows: var(--topbar-h) minmax(0, 1fr) auto;
+		height: auto;
+	}
+}
+
+@media (max-width: 760px) {
+	#app {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: var(--topbar-h) auto minmax(0, 1fr) auto;
+		height: auto;
+		min-height: 100vh;
+	}
+
+	#sidebar {
+		grid-column: 1;
+		grid-row: 2;
+		flex-direction: row;
+		overflow-x: auto;
+		border-right: 0;
+		border-bottom: 1px solid var(--line);
+	}
+
+	#sidebar a {
+		flex: 0 0 auto;
+		padding: 0 10px;
+	}
+
+	#main {
+		grid-column: 1;
+		grid-row: 3;
+	}
+
+	#inspector {
+		grid-column: 1;
+		grid-row: 4;
+	}
+}
