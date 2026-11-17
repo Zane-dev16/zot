@@ -139,8 +139,12 @@
 							<span id="pairExpiry"></span>
 						</div>
 						<p id="pairStatus" data-kind="idle" aria-live="assertive">
-							not paired — paste a device token below
+							not paired — pair this browser or paste a token below
 						</p>
+						<button id="pairRetry" class="btn btn-ghost" type="button" hidden>
+							Retry
+						</button>
+						<button id="pairDone" class="btn" type="button" hidden>go to chat</button>
 						<p id="deviceSummary"></p>
 						<p id="pairNote">
 							This pairs the browser with the local daemon. The code comes back

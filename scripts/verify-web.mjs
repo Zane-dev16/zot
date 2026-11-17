@@ -83,6 +83,8 @@ const SELECTOR_CONTRACT = [
 	"#pairNote",
 	"#deviceSummary",
 	"#pairFallback",
+	"#pairRetry",
+	"#pairDone",
 	"#tokenError",
 	"#signOut",
 	"#inspector",

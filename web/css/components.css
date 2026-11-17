@@ -649,3 +649,12 @@ button.activityRun:hover {
 .toolEvent[data-source="result"] .toolEventName {
 	color: var(--state-done);
 }
+
+#pairRetry,
+#pairDone {
+	align-self: flex-start;
+}
+
+#pairStatus[data-kind="idle"] {
+	color: var(--muted);
+}

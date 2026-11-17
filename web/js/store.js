@@ -10,6 +10,25 @@ const ACTIVITY_CAP = 30;
 const SEEN_CAP = 4000;
 const TOKENS_CAP = 64 * 1024;
 const TRUNCATED = "…truncated\n";
+const PAIR_ATTEMPT_WINDOW_MS = 60 * 1000;
+
+/**
+ * The ten pairing states from the plan (§5). `#pairStatus[data-kind]` carries
+ * exactly one of these words, so the harness can assert the machine and humans
+ * get a named cause instead of a generic failure.
+ */
+export const PAIRING_STATES = [
+	"idle",
+	"requesting",
+	"code",
+	"confirming",
+	"paired",
+	"expired",
+	"mismatch",
+	"no-pending",
+	"rate-limited",
+	"error",
+];
 
 /** @param {unknown} value @returns {number|null} */
 function numericSeq(value) {
@@ -39,7 +58,7 @@ export function initialState(overrides = {}) {
 		daemon: { status: "unknown", version: "", uptimeMs: 0, error: null },
 		runs: { byId: {}, order: [], detail: {}, load: { status: "idle", error: null, at: 0, stamp: 0 } },
 		approvals: { pending: {}, error: {} },
-		pairing: { status: "idle", code: "", expiresAt: 0, device: null, error: null, attempts: [] },
+		pairing: { status: "idle", code: "", expiresAt: 0, device: null, error: null, attempts: [], waitUntil: 0 },
 		chat: { hint: "" },
 		stream: { seen: {}, lastFrameAt: 0, cursor: "" },
 	};
@@ -143,6 +162,9 @@ export function reduce(state, action) {
 			return {
 				...state,
 				auth: { status: "none", token: "", error: null },
+				// signOut returns the pairing machine to idle (plan §5) while any
+				// already-spent attempt timestamps survive for an honest rate count.
+				pairing: { ...state.pairing, status: "idle", code: "", expiresAt: 0, device: null, error: null, waitUntil: 0 },
 				runs: { byId: {}, order: [], detail: {}, load: { status: "idle", error: null, at: 0, stamp: state.runs.load.stamp } },
 				stream: { ...state.stream, seen: {} },
 			};
@@ -385,6 +407,89 @@ export function reduce(state, action) {
 			return { ...state, approvals: { ...state.approvals, pending: { ...state.approvals.pending, [id]: "pending" }, error: without(state.approvals.error, id) } };
 		}
 
+		case "pair.start": {
+			const at = Number(action.at) || 0;
+			return {
+				...state,
+				pairing: {
+					...state.pairing,
+					status: "requesting",
+					code: "",
+					expiresAt: 0,
+					device: null,
+					error: null,
+					waitUntil: 0,
+					attempts: recordAttempt(state.pairing.attempts, at),
+				},
+			};
+		}
+
+		case "pair.confirm": {
+			const at = Number(action.at) || 0;
+			return {
+				...state,
+				pairing: { ...state.pairing, status: "confirming", error: null, attempts: recordAttempt(state.pairing.attempts, at) },
+			};
+		}
+
+		case "pair.code": {
+			const code = String(action.code == null ? "" : action.code);
+			if (!/^\d{6}$/.test(code)) return state;
+			return {
+				...state,
+				pairing: { ...state.pairing, status: "code", code, expiresAt: Number(action.expiresAt) || 0, error: null },
+			};
+		}
+
+		case "pair.paired":
+			return {
+				...state,
+				pairing: {
+					...state.pairing,
+					status: "paired",
+					code: "",
+					expiresAt: 0,
+					device: action.device && typeof action.device === "object" ? action.device : null,
+					error: null,
+					waitUntil: 0,
+				},
+			};
+
+		case "pair.error": {
+			const at = Number(action.at) || 0;
+			const status = pairErrorKind(action.status, action.message);
+			return {
+				...state,
+				pairing: {
+					...state.pairing,
+					status,
+					code: "",
+					expiresAt: 0,
+					device: null,
+					error: String(action.message == null ? "" : action.message),
+					waitUntil: status === "rate-limited" ? rateLimitUntil(state.pairing.attempts, at) : 0,
+				},
+			};
+		}
+
+		case "pair.reset":
+			return {
+				...state,
+				pairing: { ...state.pairing, status: "idle", code: "", expiresAt: 0, device: null, error: null, waitUntil: 0 },
+			};
+
+		case "pair.tick": {
+			const now = Number(action.now) || 0;
+			const pairing = state.pairing;
+			if (pairing.status === "code" && pairing.expiresAt > 0 && now >= pairing.expiresAt) {
+				return { ...state, pairing: { ...pairing, status: "expired", code: "", expiresAt: 0 } };
+			}
+			if (pairing.status === "rate-limited" && pairing.waitUntil > 0 && now >= pairing.waitUntil) {
+				return { ...state, pairing: { ...pairing, status: "idle", waitUntil: 0, error: null } };
+			}
+			return state;
+		}
+
 		case "approve.settle": {
 			const id = String(action.id || "");
 			if (!id) return state;
@@ -568,6 +673,69 @@ function appendEvent(events, event) {
 }
 
 // --- selectors ------------------------------------------------------------
+
+/**
+ * Attempt timestamps inside the daemon's 60 s pairing window (both pair/start
+ * and pair/confirm count against 5 per 60 s).
+ * @param {unknown} attempts
+ * @param {number} now
+ * @returns {number[]}
+ */
+function recentAttempts(attempts, now) {
+	const list = Array.isArray(attempts) ? attempts.filter((at) => Number.isFinite(at) && at > 0) : [];
+	if (!now) return list;
+	return list.filter((at) => at <= now && now - at < PAIR_ATTEMPT_WINDOW_MS);
+}
+
+/**
+ * @param {unknown} attempts
+ * @param {number} at
+ * @returns {number[]} the surviving attempts plus this one
+ */
+function recordAttempt(attempts, at) {
+	const list = recentAttempts(attempts, at);
+	return (at ? [...list, at] : list).slice(-8);
+}
+
+/**
+ * Map a failed pairing POST to one of the named states in plan §5.
+ * @param {unknown} status HTTP status (0 for a network failure)
+ * @param {unknown} message daemon error string
+ * @returns {string}
+ */
+export function pairErrorKind(status, message) {
+	const text = String(message == null ? "" : message).toLowerCase();
+	if (Number(status) === 429 || text.includes("rate limited")) return "rate-limited";
+	if (text.includes("expired")) return "expired";
+	if (text.includes("mismatch")) return "mismatch";
+	if (text.includes("no pending")) return "no-pending";
+	return "error";
+}
+
+/**
+ * The daemon sends no Retry-After, so the client names the wait from its own
+ * POST timestamps: the oldest attempt in the window plus 60 s.
+ * @param {unknown} attempts
+ * @param {number} at
+ * @returns {number}
+ */
+function rateLimitUntil(attempts, at) {
+	const now = at || Date.now();
+	const list = recentAttempts(attempts, now);
+	const oldest = list.length ? Math.min(...list) : now;
+	return oldest + PAIR_ATTEMPT_WINDOW_MS;
+}
+
+/**
+ * @param {object} state
+ * @param {number} [now]
+ * @returns {number} ms left before a rate-limited Start is allowed again
+ */
+export function selectPairWaitMs(state, now = 0) {
+	const pairing = state.pairing;
+	if (!pairing || pairing.status !== "rate-limited" || !pairing.waitUntil) return 0;
+	return Math.max(0, Number(pairing.waitUntil) - (Number(now) || 0));
+}
 
 /** @returns {object|null} */
 export function selectRun(state, id) {

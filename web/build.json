@@ -1,24 +1,24 @@
 {
 	"version": 1,
 	"moduleCount": 12,
-	"sourceHash": "37be0f72afa4b5f289e8d8bbd294887a04cf17a0b798da01ca41e8aae8b36315",
+	"sourceHash": "47f5c18a4ca9ed4de59cf2ad67fdc855cf87a5c45edae539e97fa34ef166f837",
 	"files": {
-		"css/components.css": "sha256:7956b58dd8f74b8a32b71d3af9236d4c7aeeb5181479a7eb7ec031163a21a90c",
+		"css/components.css": "sha256:2600c3d2d8c1ea53f0d22f6642973b30d49b0990f795ddb38da69a2b5b9c366f",
 		"css/layout.css": "sha256:4931ba776acac92c03b969a383f043c69966f38c291ec498fe5835b384dc154e",
 		"css/tokens.css": "sha256:42523d62078b659d6358680cf85acdd26725bafb3c612192b55da28c2c2030e0",
-		"index.html": "sha256:8b623ef4af48d53ad2655162ec2fdb8c4e93fce6491fabee3a2bed5e7b43ea6d",
+		"index.html": "sha256:f108bbed61ec870014637f6e0a77d2056e08771c7788ec04c320d4b4f1d0d8b7",
 		"js/api.js": "sha256:c8ba7fe71cf91b596efd2719de004949d6f21732056262077c7dee023ec656b2",
 		"js/dom.js": "sha256:956622dc8553990b3816a294dc20159a7140ea36665d3f5793ace2305868c751",
 		"js/format.js": "sha256:4064e239f1b2e38f9a235f5f5adde133f1f31bec75930b3b6db0cdd4190047ab",
-		"js/main.js": "sha256:873fa6ac12c2a447142ce3859727365469da3c177e27cca6f31cd285f14bdbbf",
+		"js/main.js": "sha256:d29f842084ad798a89e673d440b18ec84b4283bb525ce75c3596a607983cd22a",
 		"js/render.js": "sha256:bc581eca5b7b423b59a13cd4f52114cc52564e9149e9ae38042a9ce9c772fa8b",
-		"js/store.js": "sha256:1cbcc78ddc8cc1eea95825804aed7ed1605d58b5a4fd25ff5e145a1aa990ac57",
+		"js/store.js": "sha256:10427db664955ff52a7f8ef6ecb88642111b5a70f47f0b3f4aaff54837c87a59",
 		"js/stream.js": "sha256:d06ccafa04db66e92d3c4d79c1c4ebeed4f98a5f79304985e3eb5232874a2e71",
 		"js/views/activity.js": "sha256:d27d17c77e619bbe6508a97bba18d968a33b490fdde5f6d1c9a3604f59f0d8f2",
 		"js/views/approvals.js": "sha256:2e88d075a1346f06d9881aba9c690a85f42917ab32fdea6689c7a18185f22925",
 		"js/views/chat.js": "sha256:9f6f196815a09607635c2e68355031767b4ec523eed4834f7fee49077d9b0d09",
 		"js/views/inspector.js": "sha256:0bba5987902908465be4230d9155c3d6ad348cddfe82d4de00db9b2b8f1b1fdd",
-		"js/views/pairing.js": "sha256:89a5c4849f8148d752aa4d7600d2b1757dfac60faf0d6853c0194cf9f42b0f10"
+		"js/views/pairing.js": "sha256:806d4cecb7821cadbc96f675153d23161a483f16f3d649f5b58b18281ae46167"
 	},
-	"builtAt": "2026-11-17T17:45:01.384Z"
+	"builtAt": "2026-11-17T17:56:40.908Z"
 }

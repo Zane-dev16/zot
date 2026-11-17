@@ -6,7 +6,7 @@ import * as api from "./api.js";
 import { firstLine } from "./format.js";
 import { createRenderer } from "./render.js";
 import { createStream } from "./stream.js";
-import { createStore, initialState, selectCanFetch, selectCursor, selectDetailQueue, selectRun } from "./store.js";
+import { createStore, initialState, selectCanFetch, selectCursor, selectDetailQueue, selectPairWaitMs, selectRun } from "./store.js";
 
 const TOKEN_KEY = "zot.token";
 const SINCE_KEY = "zot.since";
@@ -16,6 +16,9 @@ const VIEWS = ["chat", "approvals", "activity", "pairing"];
 const VARIANTS = ["console", "ledger", "tty"];
 const HEALTH_POLL_MS = 15000;
 const TICK_MS = 5000;
+// The pairing code counts down in whole seconds; nothing else on the console
+// needs a 1 s clock, so this interval only runs work while pairing is active.
+const PAIR_TICK_MS = 1000;
 
 /** @returns {string} */
 function readStorage(key) {
@@ -71,7 +74,7 @@ const inflightDetails = new Set();
 const inflightEvents = new Set();
 let focusReturn = null;
 
-/** @type {{route: Function, variant: Function, saveToken: Function, signOut: Function, refreshRuns: Function, send: Function, approve: Function, cancel: Function, select: Function, inspectorToggle: Function, inspectorTab: Function, goApprove: Function, retryNow: Function, filter: Function}} */
+/** @type {{route: Function, variant: Function, saveToken: Function, signOut: Function, refreshRuns: Function, send: Function, approve: Function, cancel: Function, select: Function, inspectorToggle: Function, inspectorTab: Function, goApprove: Function, retryNow: Function, filter: Function, pairStart: Function, pairConfirm: Function, pairRetry: Function}} */
 const actions = {
 	/**
 	 * @param {string} view
@@ -207,6 +210,18 @@ const actions = {
 	filter(filter) {
 		store.dispatch({ type: "ui.activityFilter", filter });
 	},
+
+	pairStart() {
+		return pairStart();
+	},
+
+	pairConfirm() {
+		return pairConfirm();
+	},
+
+	pairRetry() {
+		store.dispatch({ type: "pair.reset" });
+	},
 };
 
 const renderer = createRenderer(doc, actions);
@@ -279,6 +294,9 @@ function drainDetailQueue() {
 function rejectAuth(error) {
 	store.dispatch({ type: "auth.rejected", error });
 	store.dispatch({ type: "conn.set", status: "auth" });
+	// A rejected token means pairing is the only useful surface: route there so
+	// #tokenError can explain it (plan §7.2).
+	actions.route("pairing");
 }
 
 /** Fetch the run list. Never called without a token (selectCanFetch gate). */
@@ -298,6 +316,54 @@ async function refreshRuns() {
 			stamp,
 			error: err && err.status === 401 ? "auth failed" : (err && err.message) || "load failed",
 			status: err && err.status,
+		});
+	}
+}
+
+/**
+ * Ask the daemon for a pairing code: POST /api/v1/pair/start, always as the
+ * browser kind the allowlist accepts ("browser" | "ios").
+ */
+async function pairStart() {
+	const state = getState();
+	if (selectPairWaitMs(state, Date.now()) > 0) return;
+	store.dispatch({ type: "pair.start", at: Date.now() });
+	try {
+		const { code, expiresAt } = await api.pairStart("browser", "browser");
+		store.dispatch({ type: "pair.code", code, expiresAt });
+	} catch (err) {
+		store.dispatch({
+			type: "pair.error",
+			status: (err && err.status) || 0,
+			message: (err && err.message) || "could not reach the daemon",
+			at: Date.now(),
+		});
+	}
+}
+
+/**
+ * Confirm the code this page is showing: POST /api/v1/pair/confirm. A success
+ * is the only path that writes the token, and it stays in localStorage.
+ */
+async function pairConfirm() {
+	const state = getState();
+	const code = state.pairing.code;
+	if (!code) return;
+	store.dispatch({ type: "pair.confirm", at: Date.now() });
+	try {
+		const { token, device } = await api.pairConfirm(code);
+		if (!token) throw new api.ApiError("the daemon returned no token", 0, null);
+		writeStorage(TOKEN_KEY, token);
+		store.dispatch({ type: "auth.token", token });
+		store.dispatch({ type: "pair.paired", device });
+		connect();
+		refreshRuns();
+	} catch (err) {
+		store.dispatch({
+			type: "pair.error",
+			status: (err && err.status) || 0,
+			message: (err && err.message) || "could not reach the daemon",
+			at: Date.now(),
 		});
 	}
 }
@@ -444,6 +510,16 @@ function boot() {
 	}
 	renderer.update(getState());
 	if (typeof setInterval === "function") setInterval(() => renderer.update(getState()), TICK_MS);
+	// Pairing countdowns: expire the displayed code at expiresAt and release a
+	// locally-tracked rate-limit wait. The interval is a no-op otherwise.
+	if (typeof setInterval === "function") {
+		setInterval(() => {
+			const state = getState();
+			if (state.pairing.status !== "code" && state.pairing.status !== "rate-limited") return;
+			store.dispatch({ type: "pair.tick", now: Date.now() });
+			renderer.update(getState());
+		}, PAIR_TICK_MS);
+	}
 }
 
 window.addEventListener("hashchange", () => {

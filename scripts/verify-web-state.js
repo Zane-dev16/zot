@@ -30,6 +30,7 @@ async function main() {
 		selectCursor,
 		selectDetailQueue,
 		selectOrderedRuns,
+		selectPairWaitMs,
 	} = store;
 
 	let passed = 0;
@@ -195,6 +196,52 @@ async function main() {
 		);
 		assert.equal(selectActivity(s).length, 3);
 		pass("approvals: queued and waiting_tool are the attention queue");
+	}
+
+	// 12. Pairing is one named machine (plan §5): every state is reachable, the
+	//     code expires on the 1 s tick, and signOut returns it to idle.
+	{
+		let s = initialState();
+		assert.equal(s.pairing.status, "idle");
+		s = reduce(s, { type: "pair.start", at: 1000 });
+		assert.equal(s.pairing.status, "requesting");
+		s = reduce(s, { type: "pair.code", code: "123456", expiresAt: 2000 });
+		assert.equal(s.pairing.status, "code");
+		assert.equal(s.pairing.code, "123456");
+		s = reduce(s, { type: "pair.tick", now: 2500 });
+		assert.equal(s.pairing.status, "expired");
+		assert.equal(s.pairing.code, "");
+		s = reduce(s, { type: "pair.error", status: 400, message: "pair code mismatch", at: 3100 });
+		assert.equal(s.pairing.status, "mismatch");
+		s = reduce(s, { type: "pair.error", status: 400, message: "no pending pairing", at: 3200 });
+		assert.equal(s.pairing.status, "no-pending");
+		s = reduce(s, { type: "pair.error", status: 400, message: "pair code expired", at: 3300 });
+		assert.equal(s.pairing.status, "expired");
+		s = reduce(s, { type: "pair.error", status: 429, message: "rate limited", at: 3400 });
+		assert.equal(s.pairing.status, "rate-limited");
+		assert.ok(selectPairWaitMs(s, 3400) > 0);
+		s = reduce(s, { type: "pair.tick", now: 200000 });
+		assert.equal(s.pairing.status, "idle");
+		s = reduce(s, { type: "pair.error", status: 0, message: "could not reach the daemon", at: 5000 });
+		assert.equal(s.pairing.status, "error");
+		s = reduce(s, { type: "pair.reset" });
+		assert.equal(s.pairing.status, "idle");
+		s = reduce(s, { type: "pair.start", at: 6000 });
+		s = reduce(s, { type: "pair.code", code: "654321", expiresAt: 9000 });
+		s = reduce(s, { type: "pair.confirm", at: 7000 });
+		assert.equal(s.pairing.status, "confirming");
+		s = reduce(s, { type: "pair.paired", device: { id: "d1", label: "browser", kind: "browser", createdAt: 7000 } });
+		assert.equal(s.pairing.status, "paired");
+		assert.equal(s.pairing.device.kind, "browser");
+		assert.equal(s.pairing.code, "");
+		s = reduce(s, { type: "auth.token", token: "t" });
+		s = reduce(s, { type: "auth.signOut" });
+		assert.equal(s.pairing.status, "idle");
+		assert.equal(s.pairing.code, "");
+		// A non-six-digit payload is never rendered as a code.
+		assert.equal(s.pairing.status, "idle");
+		assert.equal(reduce(s, { type: "pair.code", code: "12345", expiresAt: 1 }).pairing.status, "idle");
+		pass("pairing: ten named states, tick expiry, retry and signOut reset");
 	}
 
 	console.log("PASS web state (" + passed + " checks)");

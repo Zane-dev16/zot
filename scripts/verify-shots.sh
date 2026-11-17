@@ -3,14 +3,16 @@
 # that drives a real headless Chrome over CDP. No npm dependency, no Playwright.
 #
 # One command boots an isolated daemon (temp port + temp db), pairs a browser
-# device, drives the UI through its documented selectors, and captures five
-# full-window PNGs into an evidence directory:
+# device through the pairing UI, drives the console through its documented
+# selectors, and captures seven full-window PNGs into an evidence directory:
 #
-#   pairing.png   the pairing view (#view-pairing) before a token is saved
-#   chat.png      token accepted, stream live, completion text rendered
-#   approvals.png the Approvals view: a waiting_tool run and its Approve/Cancel
-#   activity.png  the Activity view: #activity populated with titled run rows
-#   inspector.png selecting an Activity row opens its tool events
+#   pairing.png           the pairing view before any code is requested (#token empty)
+#   pairing-code.png      #pairStart answered: six-digit #pairCode + countdown
+#   pairing-confirmed.png #pairConfirm answered: #pairStatus[data-kind="paired"]
+#   chat.png              token accepted, stream live, completion text rendered
+#   approvals.png         the Approvals view: a waiting_tool run and its Approve/Cancel
+#   activity.png          the Activity view: #activity populated with titled run rows
+#   inspector.png         selecting an Activity row opens its tool events
 #
 # Views navigate through #navChat/#navApprovals/#navActivity/#navPairing; each
 # screen asserts its own `data-active` before capturing.
@@ -32,8 +34,10 @@
 #   EVIDENCE_DIR           where PNGs land when $1 is absent
 #   ZOT_SHOTS_PORT         daemon port (default 18788; 18787 is prove.sh's)
 #   ZOT_SHOTS_MIN_BYTES    minimum plausible PNG size (default 10000)
+#   ZOT_SHOTS_PAIR_VIA     ui (default, 2 POSTs) or api (curl escape hatch that
+#                          skips the three pairing screens)
 #
-# Exit codes: 0 all five screens passed; 2 browser unavailable (safe to SKIP);
+# Exit codes: 0 all screens passed; 2 browser unavailable (safe to SKIP);
 # 1 any boot, interaction, or image assertion failed. Evidence is preserved on
 # failure and the evidence path is printed on every run.
 set -euo pipefail
@@ -185,26 +189,42 @@ if [ "$ready" != "1" ]; then
 	fail "daemon did not become ready on ${BASE}"
 fi
 
-# Pair once through the public, rate-limited routes. The token is then typed
-# into the real #token form; it never goes into a URL, query string, or hash.
-pair_start="$(curl -sS -X POST "${BASE}/api/v1/pair/start" \
-	-H 'content-type: application/json' \
-	-d '{"label":"verify-shots","kind":"browser"}')" || fail "pair/start request failed"
-CODE="$(printf '%s' "$pair_start" | node -e '
-	const o = JSON.parse(require("fs").readFileSync(0, "utf8"));
-	if (!o || !o.code) process.exit(1);
-	process.stdout.write(String(o.code));
-')" || fail "pair/start did not return a code: $pair_start"
+# Pairing is driven through the UI by default: two POSTs (#pairStart, then
+# #pairConfirm) against the daemon's 5-per-minute limit, leaving three spare.
+# ZOT_SHOTS_PAIR_VIA=api keeps the old curl sequencing as an escape hatch for
+# debugging this harness when the pairing UI itself is what is broken.
+PAIR_VIA="${ZOT_SHOTS_PAIR_VIA:-ui}"
+case "$PAIR_VIA" in
+ui | api) ;;
+*) fail "ZOT_SHOTS_PAIR_VIA must be ui or api (got: $PAIR_VIA)" ;;
+esac
+TOKEN=""
 
-pair_confirm="$(curl -sS -X POST "${BASE}/api/v1/pair/confirm" \
-	-H 'content-type: application/json' \
-	-d "{\"code\":\"${CODE}\"}")" || fail "pair/confirm request failed"
-TOKEN="$(printf '%s' "$pair_confirm" | node -e '
-	const o = JSON.parse(require("fs").readFileSync(0, "utf8"));
-	if (!o || !o.token) process.exit(1);
-	process.stdout.write(String(o.token));
-')" || fail "pair/confirm did not return a token: $pair_confirm"
-[ -n "$TOKEN" ] || fail "pair/confirm returned an empty token"
+pair_via_api() {
+	local pair_start CODE pair_confirm
+	pair_start="$(curl -sS -X POST "${BASE}/api/v1/pair/start" \
+		-H 'content-type: application/json' \
+		-d '{"label":"verify-shots","kind":"browser"}')" || fail "pair/start request failed"
+	CODE="$(printf '%s' "$pair_start" | node -e '
+		const o = JSON.parse(require("fs").readFileSync(0, "utf8"));
+		if (!o || !o.code) process.exit(1);
+		process.stdout.write(String(o.code));
+	')" || fail "pair/start did not return a code: $pair_start"
+	pair_confirm="$(curl -sS -X POST "${BASE}/api/v1/pair/confirm" \
+		-H 'content-type: application/json' \
+		-d "{\"code\":\"${CODE}\"}")" || fail "pair/confirm request failed"
+	TOKEN="$(printf '%s' "$pair_confirm" | node -e '
+		const o = JSON.parse(require("fs").readFileSync(0, "utf8"));
+		if (!o || !o.token) process.exit(1);
+		process.stdout.write(String(o.token));
+	')" || fail "pair/confirm did not return a token: $pair_confirm"
+	[ -n "$TOKEN" ] || fail "pair/confirm returned an empty token"
+}
+
+if [ "$PAIR_VIA" = "api" ]; then
+	echo "NOTE ZOT_SHOTS_PAIR_VIA=api: pairing screens skipped, token minted by curl"
+	pair_via_api
+fi
 
 ab() {
 	"$BROWSER_BIN" "$@"
@@ -320,12 +340,14 @@ wait_run_state() {
 	fail "run ${id} did not reach ${want} (last state: ${state:-unknown})"
 }
 
-# --- pairing screen -------------------------------------------------------
+# --- pairing screens ------------------------------------------------------
 # Selector contract: #auth holds the pairing/device-token surface, #token is
-# the token field (aria-label "Device token"), #saveToken saves it. A later UI
-# rework must keep these three handles or update this script and the skill.
-if ! ab open "${BASE}/" >/dev/null 2>"$TMP/open.err"; then
-	fail "browser could not open ${BASE}/: $(cat "$TMP/open.err")"
+# the token field (aria-label "Device token"), #saveToken saves it, and the
+# machine is #pairStart -> #pairCode -> #pairConfirm with every state named on
+# #pairStatus[data-kind]. The initial screen is captured before any code is
+# requested so it still shows the empty token field, exactly as before.
+if ! ab open "${BASE}/#/pairing" >/dev/null 2>"$TMP/open.err"; then
+	fail "browser could not open ${BASE}/#/pairing: $(cat "$TMP/open.err")"
 fi
 OPENED=1
 ab set viewport "$VIEWPORT_W" "$VIEWPORT_H" >/dev/null
@@ -334,12 +356,16 @@ assert_true "pairing surface is initial state" '(() => {
 	const auth = document.querySelector("#auth");
 	const token = document.querySelector("#auth #token");
 	const save = [...document.querySelectorAll("#auth button")].find((b) => b.id === "saveToken" || b.textContent.trim() === "Save");
+	const start = document.querySelector("#pairStart");
+	const status = document.querySelector("#pairStatus");
 	return Boolean(
 		auth && auth.offsetWidth > 0 &&
 		token && token.offsetWidth > 0 &&
 		token.value === "" &&
 		token.getAttribute("aria-label") === "Device token" &&
-		save && save.offsetWidth > 0
+		save && save.offsetWidth > 0 &&
+		start && start.offsetWidth > 0 && !start.disabled &&
+		status && status.getAttribute("data-kind") === "idle"
 	);
 })()'
 assert_true "pairing view is active" '(() => {
@@ -349,9 +375,78 @@ assert_true "pairing view is active" '(() => {
 })()'
 capture pairing
 
-# --- chat screen ----------------------------------------------------------
+storage_value() {
+	local key="$1" raw
+	if ! raw="$(ab eval --json "localStorage.getItem(\"${key}\")" 2>"$TMP/eval.err")"; then
+		fail "could not read localStorage.${key}: $(cat "$TMP/eval.err")"
+	fi
+	printf '%s' "$raw" | node -e '
+		const o = JSON.parse(require("fs").readFileSync(0, "utf8"));
+		if (!o.success) {
+			console.error(o.error || "eval failed");
+			process.exit(1);
+		}
+		const r = o.data ? o.data.result : null;
+		process.stdout.write(r == null ? "" : String(r));
+	' || fail "localStorage.${key} was not readable as a string"
+}
+
+if [ "$PAIR_VIA" = "ui" ]; then
+	# --- pairing-code screen ---------------------------------------------
+	ab click "#pairStart" >/dev/null
+	wait_true "pairing code issued" '/^\d{6}$/.test(document.querySelector("#pairCode").textContent) && document.querySelector("#pairStatus").getAttribute("data-kind") === "code"'
+	assert_true "pairing code is six digits with a countdown" '(() => {
+		const code = document.querySelector("#pairCode");
+		const expiry = document.querySelector("#pairExpiry");
+		const confirm = document.querySelector("#pairConfirm");
+		const status = document.querySelector("#pairStatus");
+		return Boolean(
+			code.dataset.kind === "code" &&
+			/^\d{6}$/.test(code.textContent) &&
+			/^expires in \d+:\d{2}$/.test(expiry.textContent) &&
+			confirm && !confirm.disabled &&
+			status.textContent.includes("expires in")
+		);
+	})()'
+	capture pairing-code
+
+	# --- pairing-confirmed screen ----------------------------------------
+	ab click "#pairConfirm" >/dev/null
+	wait_true "pairing confirmed" 'document.querySelector("#pairStatus").getAttribute("data-kind") === "paired"'
+	assert_true "paired state saved the token out of the URL" '(() => {
+		const kind = document.querySelector("#pairStatus").getAttribute("data-kind");
+		const summary = document.querySelector("#deviceSummary").textContent;
+		const token = localStorage.getItem("zot.token");
+		return Boolean(
+			kind === "paired" &&
+			typeof token === "string" && token.length > 0 &&
+			summary.includes("browser") &&
+			!location.href.includes(token) &&
+			document.querySelector("#pairCode").dataset.kind === "empty"
+		);
+	})()'
+	capture pairing-confirmed
+	TOKEN="$(storage_value "zot.token")"
+	[ -n "$TOKEN" ] || fail "the UI pairing saved no token in localStorage"
+
+	# --- paste fallback, driven with the token the UI just minted --------
+	# Proves the manual path and keeps one token total: sign out clears it,
+	# the fallback reopens empty, and saving the same token reconnects.
+	ab click "#signOut" >/dev/null
+	wait_true "sign out clears the token" 'localStorage.getItem("zot.token") === null && document.querySelector("#pairStatus").getAttribute("data-kind") === "idle"'
+	assert_true "paste fallback reopens after sign out" '(() => {
+		const fallback = document.querySelector("#pairFallback");
+		const token = document.querySelector("#token");
+		return Boolean(fallback && fallback.open && token && token.value === "" && token.offsetWidth > 0);
+	})()'
+else
+	echo "NOTE pairing-code/pairing-confirmed screens skipped (ZOT_SHOTS_PAIR_VIA=api)"
+fi
+
 ab fill "#token" "$TOKEN" >/dev/null
 ab click "#saveToken" >/dev/null
+
+# --- chat screen ----------------------------------------------------------
 wait_true "stream live" 'document.querySelector("#status").textContent === "live"'
 assert_true "token accepted and stream live" '(() => {
 	const status = document.querySelector("#status");
@@ -430,4 +525,8 @@ assert_true "inspector is the selected run on the events tab" '(() => {
 })()'
 capture inspector
 
-echo "PASS browser screenshots 5/5"
+if [ "$PAIR_VIA" = "ui" ]; then
+	echo "PASS browser screenshots 7/7"
+else
+	echo "PASS browser screenshots 5/5 (pairing screens skipped: ZOT_SHOTS_PAIR_VIA=api)"
+fi
