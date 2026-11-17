@@ -466,6 +466,24 @@ button.activityRun:hover {
 	background: var(--panel-2);
 }
 
+/* The row's four facts are spans so variants can give them fixed columns.
+   Console keeps the original single-line ledger string via inline separators. */
+button.activityRun > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+button.activityRun > span:empty {
+	display: none;
+}
+
+button.activityRun > span + span::before {
+	content: " · ";
+	color: var(--muted);
+}
+
 /* --- pairing card ------------------------------------------------------- */
 #auth {
 	display: flex;

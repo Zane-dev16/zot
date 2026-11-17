@@ -131,6 +131,24 @@
 	display: flex;
 }
 
+/* Chat is the one view with a footer. It has to own the pane's full height for
+   the composer to sit at the bottom when the thread is short: #log grows and
+   scrolls, the composer stays pinned after it (M5c). */
+#view-chat {
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+#view-chat #log {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+#view-chat #composer {
+	flex: 0 0 auto;
+}
+
 #inspector {
 	grid-column: 3;
 	grid-row: 2;

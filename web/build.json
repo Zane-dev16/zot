@@ -1,24 +1,27 @@
 {
 	"version": 1,
-	"moduleCount": 12,
-	"sourceHash": "e85a6677784af3aebd3d65f6f570eeff3cd3c839e4a30963c70a43a017582574",
+	"moduleCount": 14,
+	"sourceHash": "e00a792bd14a3448b8746ea02468c06e94dfabd6089722bed8de3dd5cfb58b90",
 	"files": {
-		"css/components.css": "sha256:72e10538fe7189545ec1d3863de66bd66f5f35559f59e84b23d9f899c5c78f29",
-		"css/layout.css": "sha256:4931ba776acac92c03b969a383f043c69966f38c291ec498fe5835b384dc154e",
+		"css/components.css": "sha256:a280855f2c864e689ad71d0b7e365b12d8e37cd293557e0be4c31b52205f4ff0",
+		"css/layout.css": "sha256:d63e4d418f68f2841626924159c17fa25116feb0310e06cecba81d0c04c586fb",
 		"css/tokens.css": "sha256:42523d62078b659d6358680cf85acdd26725bafb3c612192b55da28c2c2030e0",
-		"index.html": "sha256:d91a676480303cd1b1ce7d25cf3bf6df359a0bf65fb7f8972e7a555a58dad101",
+		"css/variants.css": "sha256:abb04de308428595f6b9d42e64b7f5087320bb360d638a90936d6eea98cbb3a8",
+		"index.html": "sha256:23aaa7282a7abd40ed1ca1907a648d01584413aa4ffc106577d1414d239864bd",
 		"js/api.js": "sha256:c8ba7fe71cf91b596efd2719de004949d6f21732056262077c7dee023ec656b2",
 		"js/dom.js": "sha256:956622dc8553990b3816a294dc20159a7140ea36665d3f5793ace2305868c751",
 		"js/format.js": "sha256:4064e239f1b2e38f9a235f5f5adde133f1f31bec75930b3b6db0cdd4190047ab",
-		"js/main.js": "sha256:51f0e1d0df525722a4e8daa7e2956abb54d3bd96e1f557c1d94bca30373c19d8",
-		"js/render.js": "sha256:92f09c4b2d60d8a9ff350db69e8d674214e95648094f95d62ef2fc4b984b219f",
+		"js/main.js": "sha256:7f54dd094f5628d22dfd6bb3100019a493cde1b3ed6ff4aa46b09278fd99ebd1",
+		"js/render.js": "sha256:5cd1a3d05a9e9501fbb584881f1b384a1a3adbb43a65ba38d18dd5973ab79b07",
 		"js/store.js": "sha256:45982d1fd30c631aa2147d5b0efe7b7b51fed94d68f64dbc2b68052f57dd71ea",
 		"js/stream.js": "sha256:d06ccafa04db66e92d3c4d79c1c4ebeed4f98a5f79304985e3eb5232874a2e71",
-		"js/views/activity.js": "sha256:3a3d7e91b073d06136b066b1692cf16da58d195b4c6c6a69ff7390efdef81901",
+		"js/views/activity.js": "sha256:8d2c822bf230d5e52c0bda3a163100a105127e32c42245dab6201c955bce04e3",
 		"js/views/approvals.js": "sha256:6542c185c08a5ff3910140332cf2e67bd8eb7bc2ff786dd37fcf0264b94a2da8",
 		"js/views/chat.js": "sha256:4258321c10422d5382dcf3a385f511d505da546281e68b369817cba82a897f24",
 		"js/views/inspector.js": "sha256:d05f64871cab3f4e3d08bc1fc50d0857ec8abb44157a26959e173a0e211f6030",
-		"js/views/pairing.js": "sha256:806d4cecb7821cadbc96f675153d23161a483f16f3d649f5b58b18281ae46167"
+		"js/views/pairing.js": "sha256:806d4cecb7821cadbc96f675153d23161a483f16f3d649f5b58b18281ae46167",
+		"js/views/variants/index.js": "sha256:fe6667bf6f5c34e8f68aecb87c2cc53e58837ce7db8094716050288c1483435d",
+		"js/views/variants/ledger.js": "sha256:f5cd0e6a7e62eefce3b58addf8b46cfe6ec41ae3b85d609b1c2d4a21bb37463c"
 	},
-	"builtAt": "2026-11-17T18:07:13.480Z"
+	"builtAt": "2026-11-17T18:36:39.232Z"
 }

@@ -100,16 +100,26 @@ export function createActivityView(doc, actions) {
 	}
 
 	/**
+	 * One ledger row. The four facts are separate spans so a variant can put
+	 * them in fixed columns (tty) or right-align the state word (ledger) without
+	 * changing a single selector: every variant renders this same node.
 	 * @param {object} run
 	 * @returns {HTMLElement}
 	 */
 	function createRow(run) {
-		const button = h("button", {
-			class: "activityRun",
-			type: "button",
-			"aria-label": "Show tool events for " + titleOf(run),
-			onclick: (event) => actions.select(run.id, event.currentTarget),
-		});
+		const button = h(
+			"button",
+			{
+				class: "activityRun",
+				type: "button",
+				"aria-label": "Show tool events for " + titleOf(run),
+				onclick: (event) => actions.select(run.id, event.currentTarget),
+			},
+			h("span", { class: "activityState" }),
+			h("span", { class: "activityTitle" }),
+			h("span", { class: "activityMeta" }),
+			h("span", { class: "activityWhen" }),
+		);
 		return h("li", { dataset: { runId: run.id, state: "" } }, button);
 	}
 
@@ -123,10 +133,14 @@ export function createActivityView(doc, actions) {
 		const button = node.querySelector("button.activityRun");
 		if (!button) return;
 		button.setAttribute("aria-label", "Show tool events for " + titleOf(run));
-		const updated = relTime(run.updatedAt, now);
-		const parts = [stateLabel(run.state) || "unknown", titleOf(run), shortId(run.id), "attempt " + (Number(run.attempt) || 1)];
-		if (updated) parts.push(updated);
-		button.textContent = parts.join(" · ");
+		const state = node.querySelector(".activityState");
+		const title = node.querySelector(".activityTitle");
+		const meta = node.querySelector(".activityMeta");
+		const when = node.querySelector(".activityWhen");
+		if (state) state.textContent = stateLabel(run.state) || "unknown";
+		if (title) title.textContent = titleOf(run);
+		if (meta) meta.textContent = shortId(run.id) + " · attempt " + (Number(run.attempt) || 1);
+		if (when) when.textContent = relTime(run.updatedAt, now);
 	}
 
 	return {

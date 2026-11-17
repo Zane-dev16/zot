@@ -11,6 +11,7 @@ import { createApprovalsView } from "./views/approvals.js";
 import { createChatView } from "./views/chat.js";
 import { createInspectorView } from "./views/inspector.js";
 import { createPairingView } from "./views/pairing.js";
+import { applyVariantHook } from "./views/variants/index.js";
 
 const VIEW_TITLES = {
 	chat: "Chat",
@@ -70,6 +71,8 @@ export function createRenderer(doc, actions) {
 
 	let lastAnnounced = "";
 	let lastConn = "";
+	// The variant hook runs once per variant change; console and tty have none.
+	let lastVariant = "";
 	// Run-state announcements are baselined once the first run list lands, so a
 	// fresh boot's replay never reads 100 historical state frames aloud.
 	let liveHydrated = false;
@@ -246,6 +249,10 @@ export function createRenderer(doc, actions) {
 			app.dataset.view = state.ui.view;
 			app.dataset.conn = state.conn.status;
 			app.dataset.variant = state.ui.variant;
+		}
+		if (state.ui.variant !== lastVariant) {
+			lastVariant = state.ui.variant;
+			applyVariantHook(doc, lastVariant);
 		}
 		renderTopbar(state);
 		renderSidebar(state);

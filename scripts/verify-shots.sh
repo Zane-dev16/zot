@@ -28,12 +28,22 @@
 #   bash scripts/verify-shots.sh [evidence-dir]
 #   EVIDENCE_DIR=/path bash scripts/verify-shots.sh
 #
+# Variant matrix (M5): the same seven screens, once per layout. The gate runs
+# the default console variant only; the matrix is produced on demand:
+#   bash scripts/verify-shots.sh /tmp/zot-shots-console
+#   ZOT_SHOTS_VARIANT=ledger bash scripts/verify-shots.sh /tmp/zot-shots-ledger
+#   ZOT_SHOTS_VARIANT=tty    bash scripts/verify-shots.sh /tmp/zot-shots-tty
+#
 # Env:
 #   ZOT_BROWSER            agent-browser CLI path (ZOT_AGENT_BROWSER also works)
 #   ZOT_CHROME             Chrome/Chromium executable path
 #   EVIDENCE_DIR           where PNGs land when $1 is absent
 #   ZOT_SHOTS_PORT         daemon port (default 18788; 18787 is prove.sh's)
 #   ZOT_SHOTS_MIN_BYTES    minimum plausible PNG size (default 10000)
+#   ZOT_SHOTS_VARIANT      console|ledger|tty: opens ?variant=<v> for every
+#                          screen and prefixes every file (ledger-chat.png, ...).
+#                          Unset means the default console layout, no query, and
+#                          unprefixed filenames.
 #   ZOT_SHOTS_PAIR_VIA     ui (default, 2 POSTs) or api (curl escape hatch that
 #                          skips the three pairing screens)
 #
@@ -67,6 +77,26 @@ first_exec() {
 	done
 	return 1
 }
+
+# Layout variant (M5). Unset is the default console run the gate uses: no query
+# string, unprefixed filenames. A named variant opens ?variant=<v> on every
+# screen and prefixes every capture so three evidence dirs compare 1:1.
+VARIANT="${ZOT_SHOTS_VARIANT:-}"
+case "$VARIANT" in
+"")
+	EXPECT_VARIANT="console"
+	VARIANT_QUERY=""
+	VARIANT_PREFIX=""
+	;;
+console | ledger | tty)
+	EXPECT_VARIANT="$VARIANT"
+	VARIANT_QUERY="?variant=${VARIANT}"
+	VARIANT_PREFIX="${VARIANT}-"
+	;;
+*)
+	fail "ZOT_SHOTS_VARIANT must be console, ledger, or tty (got: $VARIANT)"
+	;;
+esac
 
 # An explicit env var pointing nowhere is a misconfiguration, not a skip.
 for var in ZOT_BROWSER ZOT_AGENT_BROWSER ZOT_CHROME; do
@@ -131,6 +161,11 @@ fi
 mkdir -p "$EVIDENCE"
 EVIDENCE="$(cd "$EVIDENCE" && pwd)"
 echo "EVIDENCE ${EVIDENCE}"
+if [ -n "$VARIANT" ]; then
+	echo "VARIANT ${VARIANT} (url ${VARIANT_QUERY}, files ${VARIANT_PREFIX}<screen>.png)"
+else
+	echo "VARIANT console (default; no query, unprefixed files)"
+fi
 
 # agent-browser keeps one daemon per machine and derives session/browser launch
 # from env. A per-run session name keeps other tasks' browser state untouched.
@@ -266,7 +301,7 @@ wait_true() {
 }
 
 capture() {
-	local name="$1" path="$EVIDENCE/$1.png" bytes
+	local name="${VARIANT_PREFIX}$1" path="$EVIDENCE/${VARIANT_PREFIX}$1.png" bytes
 	if ! ab screenshot "$path" >/dev/null 2>"$TMP/shot.err"; then
 		fail "screenshot $name failed: $(cat "$TMP/shot.err")"
 	fi
@@ -346,12 +381,44 @@ wait_run_state() {
 # machine is #pairStart -> #pairCode -> #pairConfirm with every state named on
 # #pairStatus[data-kind]. The initial screen is captured before any code is
 # requested so it still shows the empty token field, exactly as before.
-if ! ab open "${BASE}/#/pairing" >/dev/null 2>"$TMP/open.err"; then
-	fail "browser could not open ${BASE}/#/pairing: $(cat "$TMP/open.err")"
+if ! ab open "${BASE}/${VARIANT_QUERY}#/pairing" >/dev/null 2>"$TMP/open.err"; then
+	fail "browser could not open ${BASE}/${VARIANT_QUERY}#/pairing: $(cat "$TMP/open.err")"
 fi
 OPENED=1
 ab set viewport "$VIEWPORT_W" "$VIEWPORT_H" >/dev/null
 wait_true "page loaded" 'document.querySelector("#auth #token") !== null'
+
+# The variant flag is only honest if the opened page actually carries it and
+# the switch can move the shell at runtime without a reload.
+ab eval "window.__zotVariant = '${EXPECT_VARIANT}'" >/dev/null
+assert_true "variant ${VARIANT:-console} is applied" '(() => {
+	const app = document.querySelector("#app");
+	const select = document.querySelector("#variantSwitch");
+	return Boolean(
+		app && app.dataset.variant === window.__zotVariant &&
+		select && !select.disabled && select.value === window.__zotVariant
+	);
+})()'
+assert_true "variant switch flips the layout at runtime" '(() => {
+	const app = document.querySelector("#app");
+	const select = document.querySelector("#variantSwitch");
+	if (!app || !select || select.disabled) return false;
+	const start = window.__zotVariant;
+	const other = start === "ledger" ? "tty" : "ledger";
+	const fire = (value) => {
+		select.value = value;
+		select.dispatchEvent(new Event("change", { bubbles: true }));
+	};
+	fire(other);
+	const flipped = app.dataset.variant === other;
+	fire(start);
+	return Boolean(
+		flipped &&
+		app.dataset.variant === start &&
+		select.value === start &&
+		localStorage.getItem("zot.variant") === start
+	);
+})()'
 assert_true "pairing surface is initial state" '(() => {
 	const auth = document.querySelector("#auth");
 	const token = document.querySelector("#auth #token");
@@ -467,6 +534,23 @@ assert_true "chat view is active" '(() => {
 	return Boolean(view && view.hasAttribute("data-active"));
 })()'
 capture chat
+
+# M5c: with a short thread the composer is the pane footer, not a card floating
+# under the last run. The check compares the composer's bottom edge with the
+# chat section's bottom edge (identical in all three variants).
+assert_true "composer sits at the chat pane footer" '(() => {
+	const pane = document.querySelector("#view-chat");
+	const composer = document.querySelector("#composer");
+	if (!pane || !composer) return false;
+	const paneBox = pane.getBoundingClientRect();
+	const composerBox = composer.getBoundingClientRect();
+	return Boolean(
+		pane.hasAttribute("data-active") &&
+		composerBox.height > 0 &&
+		Math.abs(paneBox.bottom - composerBox.bottom) <= 2 &&
+		document.querySelectorAll("#log article").length <= 3
+	);
+})()'
 
 # --- live region ----------------------------------------------------------
 # #live is polite, and it carries run-state changes but never token text. A
@@ -602,7 +686,11 @@ wait_true "escape closes the inspector and restores focus" '(() => {
 })()'
 
 if [ "$PAIR_VIA" = "ui" ]; then
-	echo "PASS browser screenshots 7/7"
+	if [ -n "$VARIANT" ]; then
+		echo "PASS browser screenshots ${VARIANT} 7/7"
+	else
+		echo "PASS browser screenshots 7/7"
+	fi
 else
 	echo "PASS browser screenshots 5/5 (pairing screens skipped: ZOT_SHOTS_PAIR_VIA=api)"
 fi

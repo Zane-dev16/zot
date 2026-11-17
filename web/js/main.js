@@ -42,6 +42,23 @@ function writeStorage(key, value) {
 	}
 }
 
+/**
+ * Keep `?variant=` in step with the switch, so a runtime flip survives a
+ * reload even when the page was opened with an explicit variant. Only the
+ * layout name goes in the URL; the token never does.
+ * @param {string} variant
+ */
+function syncVariantUrl(variant) {
+	if (typeof location === "undefined" || typeof history === "undefined") return;
+	try {
+		const url = new URL(location.href);
+		url.searchParams.set("variant", variant);
+		if (url.href !== location.href) history.replaceState(null, "", url.pathname + url.search + url.hash);
+	} catch {
+		// an opaque origin still renders; it just keeps the URL it was given
+	}
+}
+
 /** @returns {string} view named by the URL hash, or "" */
 function hashView() {
 	const match = /^#\/([a-z]+)/.exec(typeof location === "undefined" ? "" : location.hash || "");
@@ -95,6 +112,7 @@ const actions = {
 		const next = VARIANTS.includes(variant) ? variant : DEFAULT_VARIANT;
 		writeStorage(VARIANT_KEY, next);
 		store.dispatch({ type: "ui.variant", variant: next });
+		syncVariantUrl(next);
 	},
 
 	/**
@@ -483,7 +501,13 @@ function connect() {
 }
 
 function boot() {
-	const variant = queryVariant() || readStorage(VARIANT_KEY) || DEFAULT_VARIANT;
+	// Precedence: an explicit ?variant= wins (evidence runs and shared links),
+	// then the remembered choice, then the default. An explicit flag is also
+	// remembered, so the next visit without it keeps the same layout.
+	const fromQuery = queryVariant();
+	const remembered = readStorage(VARIANT_KEY);
+	const variant = fromQuery || remembered || DEFAULT_VARIANT;
+	if (fromQuery) writeStorage(VARIANT_KEY, fromQuery);
 	store.dispatch({ type: "ui.variant", variant: VARIANTS.includes(variant) ? variant : DEFAULT_VARIANT });
 	const token = readStorage(TOKEN_KEY).trim();
 	store.dispatch({ type: "auth.boot", token });
