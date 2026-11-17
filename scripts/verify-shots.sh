@@ -468,6 +468,23 @@ assert_true "chat view is active" '(() => {
 })()'
 capture chat
 
+# --- live region ----------------------------------------------------------
+# #live is polite, and it carries run-state changes but never token text. A
+# second prompt goes through the real composer so the store sees the queued →
+# running → done transitions the announcement is built from.
+assert_true "#live is polite" '(() => {
+	const live = document.querySelector("#live");
+	return live.getAttribute("aria-live") === "polite" && live.getAttribute("aria-atomic") === "false";
+})()'
+ab fill "#box" "hello live announcement" >/dev/null
+ab click "#send" >/dev/null
+wait_true "run state change announced" '/run hello live announcement .*(running|done)/.test(document.querySelector("#live").textContent)'
+wait_true "announced run reached a terminal state" 'document.querySelector("#live").textContent.includes("run hello live announcement done")'
+assert_true "#live never carries token text" '(() => {
+	const text = document.querySelector("#live").textContent;
+	return text.length > 0 && !text.includes("echo[echo]") && !text.includes("zot.token");
+})()'
+
 # --- approvals screen -----------------------------------------------------
 # Approvals are their own view: Chat and the Inspector never perform a run
 # transition (ADR-3), so the row lives in #view-approvals and the harness has to
@@ -476,8 +493,25 @@ capture chat
 TOOL_RUN="$(create_run "tool approval" "tool: shell echo hi")" || fail "could not create tool run"
 wait_run_state "$TOOL_RUN" "waiting_tool"
 ab eval "window.__zotToolRun = '${TOOL_RUN}'" >/dev/null
-ab click "#navApprovals" >/dev/null
-wait_true "approvals view active" 'document.querySelector("#view-approvals[data-active]") !== null'
+
+# Keyboard route: arrows move focus inside the sidebar, Enter follows the route
+# and focus lands on #viewTitle (focus-follows-route).
+ab focus "#navChat" >/dev/null
+ab press "ArrowDown" >/dev/null
+wait_true "arrow keys move the sidebar focus" '(() => {
+	const active = document.activeElement;
+	return Boolean(active && active.id === "navApprovals" && document.querySelector("#view-chat[data-active]"));
+})()'
+ab press "Enter" >/dev/null
+wait_true "enter follows the route and focuses #viewTitle" '(() => {
+	const title = document.querySelector("#viewTitle");
+	const active = document.activeElement;
+	return Boolean(
+		document.querySelector("#view-approvals[data-active]") &&
+		active && active.id === "viewTitle" &&
+		title.textContent === "Approvals"
+	);
+})()'
 wait_true "approval row visible" '(() => {
 	const item = document.querySelector(`#approvals [data-run-id="${window.__zotToolRun}"]`);
 	if (!item) return false;
@@ -497,8 +531,17 @@ capture approvals
 # --- activity screen ------------------------------------------------------
 ab click "#navActivity" >/dev/null
 wait_true "activity view active" 'document.querySelector("#view-activity[data-active]") !== null'
+assert_true "focus follows the route to Activity" '(() => {
+	const active = document.activeElement;
+	const title = document.querySelector("#viewTitle");
+	return Boolean(active && active.id === "viewTitle" && title.textContent === "Activity");
+})()'
+# 18 load runs make the density promise measurable at the 1280x800 gate.
+for i in $(seq 1 18); do
+	create_run "load ${i}" "hello load ${i}" >/dev/null || fail "could not create load run ${i}"
+done
 ab click "#refreshActivity" >/dev/null
-wait_true "activity populated" 'document.querySelectorAll("#activity li button.activityRun").length >= 2'
+wait_true "activity populated" 'document.querySelectorAll("#activity li button.activityRun").length >= 18'
 assert_true "activity rows are titled and count is shown" '(() => {
 	const rows = [...document.querySelectorAll("#activity li button.activityRun")].map((b) => b.textContent);
 	const count = document.querySelector("#activityCount").textContent;
@@ -506,12 +549,33 @@ assert_true "activity rows are titled and count is shown" '(() => {
 		rows.some((t) => t.includes("tool approval")) &&
 		/\d+ shown/.test(count);
 })()'
+assert_true "18 activity rows fit above 760px" '(() => {
+	const rows = [...document.querySelectorAll("#activity li")];
+	if (rows.length < 18) return false;
+	const first = rows[0].getBoundingClientRect();
+	const eighteenth = rows[17].getBoundingClientRect();
+	return first.height > 0 && eighteenth.bottom - first.top < 760;
+})()'
+# Empty state: a filter with no matches names itself and leaves the list empty.
+ab click '#activityFilter [data-filter="failed"]' >/dev/null
+wait_true "filter empty state is explicit" '(() => {
+	const empty = document.querySelector("#activityEmpty");
+	return Boolean(
+		empty && !empty.hidden &&
+		empty.textContent === "no failed runs" &&
+		document.querySelectorAll("#activity li").length === 0 &&
+		document.querySelector("#activityFilter [data-filter=\"failed\"]").getAttribute("aria-pressed") === "true"
+	);
+})()'
+ab click '#activityFilter [data-filter="all"]' >/dev/null
+wait_true "all filter restores every row" 'document.querySelectorAll("#activity li button.activityRun").length >= 18 && document.querySelector("#activityEmpty").hidden'
 capture activity
 
 # --- inspector screen -----------------------------------------------------
-# The newest Activity row is the waiting_tool run, so it already has a live
-# tool.request event; opening it must show the events tab with that tool.
-ab click "#activity li button.activityRun" >/dev/null
+# The waiting_tool run carries a live tool.request event; selecting its Activity
+# row must open the events tab with that tool (row order is density-first now, so
+# the harness names the run instead of assuming the first row).
+ab click "#activity [data-run-id=\"${TOOL_RUN}\"] button.activityRun" >/dev/null
 wait_true "inspector shows tool events" 'document.querySelector("#inspector .toolEvent") !== null'
 assert_true "inspector is the selected run on the events tab" '(() => {
 	const title = document.querySelector("#inspectorTitle");
@@ -524,6 +588,18 @@ assert_true "inspector is the selected run on the events tab" '(() => {
 	);
 })()'
 capture inspector
+
+# Escape closes the pane and returns focus to the row that opened it.
+ab press "Escape" >/dev/null
+wait_true "escape closes the inspector and restores focus" '(() => {
+	const pane = document.querySelector("#inspector");
+	const active = document.activeElement;
+	return Boolean(
+		pane.dataset.collapsed === "true" &&
+		active && active.classList.contains("activityRun") &&
+		active.closest("li").dataset.runId === window.__zotToolRun
+	);
+})()'
 
 if [ "$PAIR_VIA" = "ui" ]; then
 	echo "PASS browser screenshots 7/7"

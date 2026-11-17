@@ -4,8 +4,8 @@
 // node identity so focus survives a re-render.
 
 import { announce } from "./dom.js";
-import { shortDuration } from "./format.js";
-import { selectPendingCount } from "./store.js";
+import { shortDuration, stateLabel, titleOf } from "./format.js";
+import { selectActivity, selectApprovals, selectChatRuns, selectPendingCount } from "./store.js";
 import { createActivityView } from "./views/activity.js";
 import { createApprovalsView } from "./views/approvals.js";
 import { createChatView } from "./views/chat.js";
@@ -52,6 +52,7 @@ export function createRenderer(doc, actions) {
 	const variantSwitch = doc.getElementById("variantSwitch");
 	const runsCount = doc.getElementById("runsCount");
 	const approvalsCount = doc.getElementById("approvalsCount");
+	const sidebar = doc.getElementById("sidebar");
 	const navs = Array.from(doc.querySelectorAll("nav#sidebar a[data-view]"));
 	const sections = {
 		chat: doc.getElementById("view-chat"),
@@ -69,6 +70,11 @@ export function createRenderer(doc, actions) {
 
 	let lastAnnounced = "";
 	let lastConn = "";
+	// Run-state announcements are baselined once the first run list lands, so a
+	// fresh boot's replay never reads 100 historical state frames aloud.
+	let liveHydrated = false;
+	const lastRunStates = new Map();
+	let lastLoadError = "";
 
 	if (retryNow) retryNow.addEventListener("click", () => actions.retryNow());
 	if (variantSwitch) variantSwitch.addEventListener("change", () => actions.variant(variantSwitch.value));
@@ -76,6 +82,28 @@ export function createRenderer(doc, actions) {
 		nav.addEventListener("click", (event) => {
 			event.preventDefault();
 			actions.route(nav.getAttribute("data-view") || "chat");
+		});
+	}
+
+	// Arrow-key navigation across the four views, with a roving tabindex so the
+	// sidebar is one tab stop and the arrows are the fast path.
+	if (sidebar) {
+		sidebar.addEventListener("keydown", (event) => {
+			const keys = ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"];
+			if (!keys.includes(event.key)) return;
+			const current = event.target instanceof Element ? event.target.closest("a[data-view]") : null;
+			if (!current || navs.length === 0) return;
+			event.preventDefault();
+			const index = navs.indexOf(current);
+			let next = index;
+			if (event.key === "ArrowDown" || event.key === "ArrowRight") next = (index + 1) % navs.length;
+			else if (event.key === "ArrowUp" || event.key === "ArrowLeft") next = (index - 1 + navs.length) % navs.length;
+			else if (event.key === "Home") next = 0;
+			else next = navs.length - 1;
+			// Arrows move focus only; Enter (or a click) follows the route, so a
+			// screen reader lands on the new view's heading instead of being
+			// yanked there mid-exploration.
+			navs[next].focus();
 		});
 	}
 
@@ -121,8 +149,11 @@ export function createRenderer(doc, actions) {
 		const pending = selectPendingCount(state);
 		for (const nav of navs) {
 			const view = nav.getAttribute("data-view");
-			if (view === state.ui.view) nav.setAttribute("aria-current", "page");
+			const active = view === state.ui.view;
+			if (active) nav.setAttribute("aria-current", "page");
 			else nav.removeAttribute("aria-current");
+			// Roving tabindex: Tab reaches the sidebar once, arrows move within it.
+			nav.tabIndex = active ? 0 : -1;
 		}
 		if (approvalsCount) {
 			approvalsCount.hidden = pending === 0;
@@ -143,15 +174,67 @@ export function createRenderer(doc, actions) {
 	}
 
 	/**
+	 * Runs rendered in the active view: only what the operator can see is worth
+	 * announcing, and it bounds how many messages one event tick can emit.
+	 * @param {object} state
+	 * @returns {Array<object>}
+	 */
+	function visibleRuns(state) {
+		if (state.ui.view === "approvals") return selectApprovals(state);
+		if (state.ui.view === "activity") return selectActivity(state);
+		if (state.ui.view === "chat") return selectChatRuns(state);
+		return [];
+	}
+
+	/**
+	 * @param {object} run
+	 * @returns {string}
+	 */
+	function runAnnouncement(run) {
+		const label = titleOf(run).slice(0, 48);
+		if (run.state === "waiting_tool") {
+			return "run " + label + (run.pendingTool ? " is waiting on " + run.pendingTool : " needs approval");
+		}
+		return "run " + label + " " + (stateLabel(run.state) || "updated");
+	}
+
+	/**
+	 * Polite announcements: connection changes, visible run-state transitions,
+	 * and load errors. Token text never reaches the live region.
 	 * @param {object} state
 	 */
 	function renderLive(state) {
-		if (!live || state.conn.status === lastConn) return;
-		lastConn = state.conn.status;
-		if (state.conn.status === "live") lastAnnounced = announce(live, "connection live");
-		else if (state.conn.status === "reconnecting") lastAnnounced = announce(live, "connection lost, reconnecting");
-		else if (state.conn.status === "offline") lastAnnounced = announce(live, "browser offline");
-		else if (state.conn.status === "auth" && state.auth.status === "rejected") lastAnnounced = announce(live, "daemon rejected the token");
+		if (!live) return;
+		if (state.conn.status !== lastConn) {
+			lastConn = state.conn.status;
+			if (state.conn.status === "live") lastAnnounced = announce(live, "connection live");
+			else if (state.conn.status === "reconnecting") lastAnnounced = announce(live, "connection lost, reconnecting");
+			else if (state.conn.status === "offline") lastAnnounced = announce(live, "browser offline");
+			else if (state.conn.status === "auth" && state.auth.status === "rejected") lastAnnounced = announce(live, "daemon rejected the token");
+		}
+
+		const load = state.runs.load;
+		if (!liveHydrated) {
+			if (load.status !== "ready") return;
+			for (const run of selectChatRuns(state)) lastRunStates.set(run.id, run.state);
+			liveHydrated = true;
+			return;
+		}
+
+		const messages = [];
+		for (const run of visibleRuns(state)) {
+			const previous = lastRunStates.get(run.id);
+			if (previous !== undefined && previous !== run.state) messages.push(runAnnouncement(run));
+			lastRunStates.set(run.id, run.state);
+		}
+		if (messages.length) lastAnnounced = announce(live, messages.slice(0, 2).join(" · "));
+
+		if (load.status === "error" && load.error && load.error !== lastLoadError) {
+			lastLoadError = load.error;
+			lastAnnounced = announce(live, "could not load runs: " + load.error);
+		} else if (load.status !== "error") {
+			lastLoadError = "";
+		}
 	}
 
 	/**

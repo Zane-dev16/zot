@@ -658,3 +658,25 @@ button.activityRun:hover {
 #pairStatus[data-kind="idle"] {
 	color: var(--muted);
 }
+
+/* --- explicit states + keyboard affordances (M4) ----------------------- */
+#chatError,
+#chatEmpty {
+	margin: 0 0 6px;
+}
+
+.inspectorError {
+	color: var(--state-failed);
+	font-size: var(--fs-sm);
+	margin-bottom: 6px;
+}
+
+.runHead .inspectorOpen {
+	margin-left: auto;
+	flex: 0 0 auto;
+}
+
+#inspectorBody[data-state="loading"],
+#inspectorBody[data-state="error"] {
+	color: var(--muted);
+}

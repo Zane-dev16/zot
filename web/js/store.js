@@ -56,7 +56,7 @@ export function initialState(overrides = {}) {
 		auth: { status: "unknown", token: "", error: null },
 		builds: { hash: "", moduleCount: 0, error: null },
 		daemon: { status: "unknown", version: "", uptimeMs: 0, error: null },
-		runs: { byId: {}, order: [], detail: {}, load: { status: "idle", error: null, at: 0, stamp: 0 } },
+		runs: { byId: {}, order: [], detail: {}, detailErrors: {}, load: { status: "idle", error: null, at: 0, stamp: 0 } },
 		approvals: { pending: {}, error: {} },
 		pairing: { status: "idle", code: "", expiresAt: 0, device: null, error: null, attempts: [], waitUntil: 0 },
 		chat: { hint: "" },
@@ -165,7 +165,13 @@ export function reduce(state, action) {
 				// signOut returns the pairing machine to idle (plan §5) while any
 				// already-spent attempt timestamps survive for an honest rate count.
 				pairing: { ...state.pairing, status: "idle", code: "", expiresAt: 0, device: null, error: null, waitUntil: 0 },
-				runs: { byId: {}, order: [], detail: {}, load: { status: "idle", error: null, at: 0, stamp: state.runs.load.stamp } },
+				runs: {
+					byId: {},
+					order: [],
+					detail: {},
+					detailErrors: {},
+					load: { status: "idle", error: null, at: 0, stamp: state.runs.load.stamp },
+				},
 				stream: { ...state.stream, seen: {} },
 			};
 
@@ -206,12 +212,21 @@ export function reduce(state, action) {
 			const rows = Array.isArray(action.runs) ? action.runs : [];
 			const merged = mergeRuns(state.runs, rows);
 			let detail = merged.detail || {};
+			let detailErrors = merged.detailErrors || {};
 			for (const row of rows) {
-				if (row && row.id != null) detail = without(detail, String(row.id));
+				if (row && row.id != null) {
+					detail = without(detail, String(row.id));
+					detailErrors = without(detailErrors, String(row.id));
+				}
 			}
 			return {
 				...state,
-				runs: { ...merged, detail, load: { status: "ready", error: null, at: Number(action.at) || 0, stamp: state.runs.load.stamp } },
+				runs: {
+					...merged,
+					detail,
+					detailErrors,
+					load: { status: "ready", error: null, at: Number(action.at) || 0, stamp: state.runs.load.stamp },
+				},
 			};
 		}
 
@@ -234,7 +249,11 @@ export function reduce(state, action) {
 
 		case "run.upsert": {
 			const merged = mergeRuns(state.runs, [action.run]);
-			if (action.run && action.run.id != null) merged.detail = without(merged.detail || {}, String(action.run.id));
+			if (action.run && action.run.id != null) {
+				const id = String(action.run.id);
+				merged.detail = without(merged.detail || {}, id);
+				merged.detailErrors = without(merged.detailErrors || {}, id);
+			}
 			return { ...state, runs: merged };
 		}
 
@@ -336,7 +355,14 @@ export function reduce(state, action) {
 		case "run.detailStart": {
 			const id = action.id == null ? "" : String(action.id);
 			if (!id) return state;
-			return { ...state, runs: { ...state.runs, detail: { ...(state.runs.detail || {}), [id]: "loading" } } };
+			return {
+				...state,
+				runs: {
+					...state.runs,
+					detail: { ...(state.runs.detail || {}), [id]: "loading" },
+					detailErrors: without(state.runs.detailErrors || {}, id),
+				},
+			};
 		}
 
 		case "run.detailOk": {
@@ -344,13 +370,21 @@ export function reduce(state, action) {
 			if (!id) return state;
 			const merged = mergeRuns(state.runs, [action.run]);
 			merged.detail = without(merged.detail || {}, id);
+			merged.detailErrors = without(merged.detailErrors || {}, id);
 			return { ...state, runs: merged };
 		}
 
 		case "run.detailErr": {
 			const id = action.id == null ? "" : String(action.id);
 			if (!id) return state;
-			return { ...state, runs: { ...state.runs, detail: without(state.runs.detail || {}, id) } };
+			return {
+				...state,
+				runs: {
+					...state.runs,
+					detail: { ...(state.runs.detail || {}), [id]: "error" },
+					detailErrors: { ...(state.runs.detailErrors || {}), [id]: String(action.error || "could not load this run") },
+				},
+			};
 		}
 
 		case "stream.cursor": {

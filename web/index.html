@@ -55,6 +55,8 @@
 					<p id="chatOlder" class="hint">
 						older runs live in <a href="#/activity">Activity</a>
 					</p>
+					<p id="chatError" role="alert"></p>
+					<p id="chatEmpty" class="empty" hidden>no runs yet — type a prompt below</p>
 					<div id="log" role="log" aria-label="Run thread"></div>
 					<form id="composer" autocomplete="off">
 						<label class="sr-only" for="box">Prompt</label>
@@ -185,15 +187,27 @@
 						×
 					</button>
 				</header>
-				<div id="inspectorTabs" role="tablist">
-					<button type="button" data-tab="details" aria-selected="true">
+				<div id="inspectorTabs" role="tablist" aria-label="Inspector tabs">
+					<button
+						type="button"
+						role="tab"
+						data-tab="details"
+						aria-selected="true"
+						aria-controls="inspectorBody"
+					>
 						Details
 					</button>
-					<button type="button" data-tab="events" aria-selected="false">
+					<button
+						type="button"
+						role="tab"
+						data-tab="events"
+						aria-selected="false"
+						aria-controls="inspectorBody"
+					>
 						Events
 					</button>
 				</div>
-				<div id="inspectorBody">
+				<div id="inspectorBody" role="tabpanel" aria-live="off">
 					<p class="empty">select a run</p>
 				</div>
 				<button id="inspectorGoApprove" class="btn" type="button" hidden>

@@ -26,6 +26,25 @@ export function createInspectorView(doc, actions) {
 			actions.inspectorTab(tab);
 			if (tab === "events") actions.loadEventsFromSelection();
 		});
+		// WAI-ARIA tabs: Left/Right/Home/End move between Details and Events.
+		tabs.addEventListener("keydown", (event) => {
+			const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+			if (!keys.includes(event.key)) return;
+			const buttons = Array.from(tabs.querySelectorAll("button[data-tab]"));
+			const current = event.target instanceof Element ? event.target.closest("button[data-tab]") : null;
+			if (!buttons.length || !current) return;
+			event.preventDefault();
+			const index = buttons.indexOf(current);
+			let next = index;
+			if (event.key === "ArrowLeft") next = (index - 1 + buttons.length) % buttons.length;
+			else if (event.key === "ArrowRight") next = (index + 1) % buttons.length;
+			else if (event.key === "Home") next = 0;
+			else next = buttons.length - 1;
+			const tab = buttons[next].getAttribute("data-tab") || "details";
+			buttons[next].focus();
+			actions.inspectorTab(tab);
+			if (tab === "events") actions.loadEventsFromSelection();
+		});
 	}
 	if (goApprove) {
 		goApprove.addEventListener("click", () => actions.goApprove());
@@ -61,6 +80,7 @@ export function createInspectorView(doc, actions) {
 		if (!run) {
 			if (body.dataset.signature === "empty") return;
 			body.dataset.signature = "empty";
+			body.dataset.state = "empty";
 			const p = doc.createElement("p");
 			p.className = "empty";
 			p.textContent = "select a run";
@@ -68,10 +88,25 @@ export function createInspectorView(doc, actions) {
 			return;
 		}
 		const tab = state.ui.inspectorTab === "events" ? "events" : "details";
-		const signature = JSON.stringify([run.id, run.state, run.attempt, run.updatedAt, tab, run.toolEvents.length, run.prompt]);
+		const detail = (state.runs.detail || {})[run.id] || "";
+		const detailError = (state.runs.detailErrors || {})[run.id] || "";
+		const signature = JSON.stringify([run.id, run.state, run.attempt, run.updatedAt, tab, run.toolEvents.length, run.prompt, detail, detailError]);
 		if (body.dataset.signature === signature) return;
 		body.dataset.signature = signature;
+		body.dataset.state = detail === "loading" ? "loading" : detail === "error" ? "error" : "ready";
 		body.replaceChildren();
+		if (detail === "loading") {
+			const note = doc.createElement("p");
+			note.className = "empty";
+			note.textContent = "loading run details…";
+			body.appendChild(note);
+		} else if (detail === "error") {
+			const note = doc.createElement("p");
+			note.className = "inspectorError";
+			note.setAttribute("role", "alert");
+			note.textContent = "could not load this run — " + (detailError || "retry from the list");
+			body.appendChild(note);
+		}
 		if (tab === "events") {
 			if (run.toolEvents.length === 0) {
 				const p = doc.createElement("p");

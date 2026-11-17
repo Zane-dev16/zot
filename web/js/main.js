@@ -525,7 +525,13 @@ function boot() {
 window.addEventListener("hashchange", () => {
 	const view = hashView();
 	if (!view) return;
-	if (view !== getState().ui.view) store.dispatch({ type: "ui.route", view });
+	if (view !== getState().ui.view) {
+		store.dispatch({ type: "ui.route", view });
+		// Focus follows the route so a keyboard/screen-reader operator lands on
+		// the new view's heading instead of staying in the sidebar.
+		const title = doc.getElementById("viewTitle");
+		if (title && typeof title.focus === "function") title.focus();
+	}
 });
 
 window.addEventListener("offline", () => {

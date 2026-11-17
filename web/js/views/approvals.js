@@ -19,6 +19,27 @@ export function createApprovalsView(doc, actions) {
 
 	if (refresh) refresh.addEventListener("click", () => actions.refreshRuns());
 
+	if (list) {
+		list.addEventListener("keydown", (event) => {
+			const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
+			if (!keys.includes(event.key)) return;
+			const rows = Array.from(list.querySelectorAll("li[data-run-id]"));
+			const current = event.target instanceof Element ? event.target.closest("li[data-run-id]") : null;
+			if (!rows.length || !current) return;
+			const index = rows.indexOf(current);
+			let next = index;
+			if (event.key === "ArrowDown") next = Math.min(rows.length - 1, index + 1);
+			else if (event.key === "ArrowUp") next = Math.max(0, index - 1);
+			else if (event.key === "Home") next = 0;
+			else next = rows.length - 1;
+			const target = rows[next].querySelector("button");
+			if (target) {
+				event.preventDefault();
+				target.focus();
+			}
+		});
+	}
+
 	/**
 	 * @param {object} run
 	 * @returns {HTMLElement}
@@ -38,6 +59,13 @@ export function createApprovalsView(doc, actions) {
 			text: "Cancel",
 			onclick: () => actions.cancel(run.id),
 		});
+		const details = h("button", {
+			class: "btn btn-ghost inspectorOpen",
+			type: "button",
+			text: "Details",
+			"aria-label": "Show details for " + titleOf(run),
+			onclick: (event) => actions.select(run.id, event.currentTarget),
+		});
 		return h(
 			"li",
 			{
@@ -55,7 +83,7 @@ export function createApprovalsView(doc, actions) {
 				h("span", { class: "runMeta" }),
 			),
 			h("p", { class: "approvalNote" }),
-			h("div", { class: "approvalRow" }, approve, cancel),
+			h("div", { class: "approvalRow" }, approve, cancel, details),
 		);
 	}
 
@@ -101,6 +129,8 @@ export function createApprovalsView(doc, actions) {
 			cancel.disabled = busy;
 			cancel.setAttribute("aria-label", "Cancel run " + shortId(run.id));
 		}
+		const details = node.querySelector(".inspectorOpen");
+		if (details) details.setAttribute("aria-label", "Show details for " + titleOf(run));
 	}
 
 	return {
@@ -115,7 +145,15 @@ export function createApprovalsView(doc, actions) {
 				const message = load.status === "error" ? load.error || "load failed" : "";
 				error.textContent = message;
 			}
-			if (empty) empty.hidden = rows.length > 0 || state.runs.order.length === 0;
+			if (empty) {
+				const known = state.runs.order.length;
+				let copy = "nothing is waiting on you";
+				if (rows.length === 0 && known === 0) {
+					copy = load.status === "loading" ? "loading runs…" : load.status === "error" ? "could not load runs — use Refresh to retry" : "nothing is waiting on you";
+				}
+				empty.hidden = rows.length > 0;
+				empty.textContent = copy;
+			}
 			if (!list) return;
 			keyed(
 				list,

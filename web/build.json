@@ -1,24 +1,24 @@
 {
 	"version": 1,
 	"moduleCount": 12,
-	"sourceHash": "47f5c18a4ca9ed4de59cf2ad67fdc855cf87a5c45edae539e97fa34ef166f837",
+	"sourceHash": "e85a6677784af3aebd3d65f6f570eeff3cd3c839e4a30963c70a43a017582574",
 	"files": {
-		"css/components.css": "sha256:2600c3d2d8c1ea53f0d22f6642973b30d49b0990f795ddb38da69a2b5b9c366f",
+		"css/components.css": "sha256:72e10538fe7189545ec1d3863de66bd66f5f35559f59e84b23d9f899c5c78f29",
 		"css/layout.css": "sha256:4931ba776acac92c03b969a383f043c69966f38c291ec498fe5835b384dc154e",
 		"css/tokens.css": "sha256:42523d62078b659d6358680cf85acdd26725bafb3c612192b55da28c2c2030e0",
-		"index.html": "sha256:f108bbed61ec870014637f6e0a77d2056e08771c7788ec04c320d4b4f1d0d8b7",
+		"index.html": "sha256:d91a676480303cd1b1ce7d25cf3bf6df359a0bf65fb7f8972e7a555a58dad101",
 		"js/api.js": "sha256:c8ba7fe71cf91b596efd2719de004949d6f21732056262077c7dee023ec656b2",
 		"js/dom.js": "sha256:956622dc8553990b3816a294dc20159a7140ea36665d3f5793ace2305868c751",
 		"js/format.js": "sha256:4064e239f1b2e38f9a235f5f5adde133f1f31bec75930b3b6db0cdd4190047ab",
-		"js/main.js": "sha256:d29f842084ad798a89e673d440b18ec84b4283bb525ce75c3596a607983cd22a",
-		"js/render.js": "sha256:bc581eca5b7b423b59a13cd4f52114cc52564e9149e9ae38042a9ce9c772fa8b",
-		"js/store.js": "sha256:10427db664955ff52a7f8ef6ecb88642111b5a70f47f0b3f4aaff54837c87a59",
+		"js/main.js": "sha256:51f0e1d0df525722a4e8daa7e2956abb54d3bd96e1f557c1d94bca30373c19d8",
+		"js/render.js": "sha256:92f09c4b2d60d8a9ff350db69e8d674214e95648094f95d62ef2fc4b984b219f",
+		"js/store.js": "sha256:45982d1fd30c631aa2147d5b0efe7b7b51fed94d68f64dbc2b68052f57dd71ea",
 		"js/stream.js": "sha256:d06ccafa04db66e92d3c4d79c1c4ebeed4f98a5f79304985e3eb5232874a2e71",
-		"js/views/activity.js": "sha256:d27d17c77e619bbe6508a97bba18d968a33b490fdde5f6d1c9a3604f59f0d8f2",
-		"js/views/approvals.js": "sha256:2e88d075a1346f06d9881aba9c690a85f42917ab32fdea6689c7a18185f22925",
-		"js/views/chat.js": "sha256:9f6f196815a09607635c2e68355031767b4ec523eed4834f7fee49077d9b0d09",
-		"js/views/inspector.js": "sha256:0bba5987902908465be4230d9155c3d6ad348cddfe82d4de00db9b2b8f1b1fdd",
+		"js/views/activity.js": "sha256:3a3d7e91b073d06136b066b1692cf16da58d195b4c6c6a69ff7390efdef81901",
+		"js/views/approvals.js": "sha256:6542c185c08a5ff3910140332cf2e67bd8eb7bc2ff786dd37fcf0264b94a2da8",
+		"js/views/chat.js": "sha256:4258321c10422d5382dcf3a385f511d505da546281e68b369817cba82a897f24",
+		"js/views/inspector.js": "sha256:d05f64871cab3f4e3d08bc1fc50d0857ec8abb44157a26959e173a0e211f6030",
 		"js/views/pairing.js": "sha256:806d4cecb7821cadbc96f675153d23161a483f16f3d649f5b58b18281ae46167"
 	},
-	"builtAt": "2026-11-17T17:56:40.908Z"
+	"builtAt": "2026-11-17T18:07:13.480Z"
 }

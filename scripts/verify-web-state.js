@@ -244,6 +244,37 @@ async function main() {
 		pass("pairing: ten named states, tick expiry, retry and signOut reset");
 	}
 
+	// 13. Inspector states: an unknown-id run is loading until REST fills it, and
+	//     a failed detail fetch is recorded instead of silently dropped.
+	{
+		let s = withToken();
+		s = reduce(s, { type: "stream.frame", frame: { id: "9", seq: 9, type: "run.state", runId: "ghost", state: "running", at: 9000 } });
+		assert.equal(s.runs.detail.ghost, "queued");
+		s = reduce(s, { type: "run.detailStart", id: "ghost" });
+		assert.equal(s.runs.detail.ghost, "loading");
+		s = reduce(s, { type: "run.detailErr", id: "ghost", error: "not found" });
+		assert.equal(s.runs.detail.ghost, "error");
+		assert.equal(s.runs.detailErrors.ghost, "not found");
+		s = reduce(s, { type: "run.detailOk", id: "ghost", run: { id: "ghost", title: "ghost run", state: "running", createdAt: 9000 } });
+		assert.equal(s.runs.detail.ghost, undefined);
+		assert.equal(s.runs.detailErrors.ghost, undefined);
+		pass("detail: loading/error are explicit and cleared by data");
+	}
+
+	// 14. Activity filtering is client-side over the same list, `all` default.
+	{
+		let s = withToken();
+		for (const [id, state] of [["a", "queued"], ["b", "running"], ["c", "failed"], ["d", "done"]]) {
+			s = reduce(s, { type: "run.upsert", run: { id, title: id, state, createdAt: 1000 } });
+		}
+		assert.equal(selectActivity(s).length, 4);
+		s = reduce(s, { type: "ui.activityFilter", filter: "failed" });
+		assert.deepEqual(selectActivity(s).map((run) => run.id), ["c"]);
+		s = reduce(s, { type: "ui.activityFilter", filter: "all" });
+		assert.equal(selectActivity(s).length, 4);
+		pass("activity: the filter narrows the same list and all restores it");
+	}
+
 	console.log("PASS web state (" + passed + " checks)");
 }
 

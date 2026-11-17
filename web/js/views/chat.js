@@ -16,6 +16,8 @@ export function createChatView(doc, actions) {
 	const box = doc.getElementById("box");
 	const hint = doc.getElementById("composerHint");
 	const older = doc.getElementById("chatOlder");
+	const error = doc.getElementById("chatError");
+	const empty = doc.getElementById("chatEmpty");
 
 	if (form) {
 		form.addEventListener("submit", (event) => {
@@ -56,6 +58,13 @@ export function createChatView(doc, actions) {
 			hidden: true,
 			onclick: () => actions.goApprove(run.id),
 		});
+		const details = h("button", {
+			class: "btn btn-ghost inspectorOpen",
+			type: "button",
+			text: "Details",
+			"aria-label": "Show details for " + titleOf(run),
+			onclick: (event) => actions.select(run.id, event.currentTarget),
+		});
 		return h(
 			"article",
 			{
@@ -65,7 +74,7 @@ export function createChatView(doc, actions) {
 					actions.select(run.id, event.currentTarget);
 				},
 			},
-			h("div", { class: "runHead" }, title, badge, meta),
+			h("div", { class: "runHead" }, title, badge, meta, details),
 			tokens,
 			toolNote,
 			needs,
@@ -103,6 +112,8 @@ export function createChatView(doc, actions) {
 			needs.hidden = !APPROVABLE_STATES.has(run.state);
 			if (run.pendingTool) needs.textContent = "waiting on " + run.pendingTool + " · open";
 		}
+		const details = node.querySelector(".inspectorOpen");
+		if (details) details.setAttribute("aria-label", "Show details for " + titleOf(run));
 	}
 
 	return {
@@ -112,8 +123,24 @@ export function createChatView(doc, actions) {
 		 */
 		update(state, now) {
 			if (hint) hint.textContent = state.chat.hint || "";
-			if (!log) return;
+			const load = state.runs.load;
+			if (error) error.textContent = load.status === "error" ? load.error || "load failed" : "";
 			const runs = selectChatRuns(state);
+			if (empty) {
+				let copy = "";
+				if (runs.length === 0) {
+					const known = state.runs.order.length;
+					const paired = state.auth.status === "hasToken" || state.auth.status === "verified";
+					if (known > 0) copy = "";
+					else if (load.status === "loading") copy = "loading runs…";
+					else if (load.status === "error") copy = "could not load runs — check the daemon and retry";
+					else if (!paired) copy = "not paired yet — pair the browser to start";
+					else copy = "no runs yet — type a prompt below";
+				}
+				empty.hidden = copy === "";
+				if (copy) empty.textContent = copy;
+			}
+			if (!log) return;
 			keyed(
 				log,
 				runs,

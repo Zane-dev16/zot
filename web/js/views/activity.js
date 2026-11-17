@@ -1,6 +1,11 @@
 // Activity view: the dense ledger of the newest runs. Rows select in the
 // inspector; the filter is client-side over the same list, so `all` is the
 // default and every row is present for the screenshot harness.
+//
+// Explicit states (M4): loading, empty (per filter), and error are separate
+// messages, and #activityError keeps a stale list visible rather than blanking
+// the ledger. Keyboard: Up/Down/Home/End walk the rows, Left/Right walk the
+// filter chips.
 
 import { h, keyed } from "../dom.js";
 import { relTime, shortId, stateLabel, titleOf } from "../format.js";
@@ -8,9 +13,34 @@ import { selectActivity } from "../store.js";
 
 const FILTERS = ["all", "waiting_tool", "running", "failed", "done"];
 
+const EMPTY_COPY = {
+	all: "no runs yet",
+	waiting_tool: "nothing is waiting on you",
+	running: "nothing is running",
+	failed: "no failed runs",
+	done: "nothing has finished yet",
+};
+
+/**
+ * @param {object} load runs.load
+ * @param {string} filter
+ * @param {number} known
+ * @param {number} shown
+ * @returns {string}
+ */
+function emptyCopy(load, filter, known, shown) {
+	if (shown > 0) return "";
+	if (known === 0) {
+		if (load.status === "loading") return "loading runs…";
+		if (load.status === "error") return "could not load runs — use Refresh to retry";
+		return EMPTY_COPY.all;
+	}
+	return EMPTY_COPY[filter] || EMPTY_COPY.all;
+}
+
 /**
  * @param {Document} doc
- * @param {{refreshRuns: () => void, select: (id: string) => void, filter: (filter: string) => void}} actions
+ * @param {{refreshRuns: () => void, select: (id: string, origin?: Element|null) => void, filter: (filter: string) => void}} actions
  */
 export function createActivityView(doc, actions) {
 	const list = doc.getElementById("activity");
@@ -30,9 +60,43 @@ export function createActivityView(doc, actions) {
 			if (!FILTERS.includes(value)) return;
 			actions.filter(value);
 		});
+		filter.addEventListener("keydown", (event) => {
+			const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+			if (!keys.includes(event.key)) return;
+			const chips = Array.from(filter.querySelectorAll("button[data-filter]"));
+			const current = event.target instanceof Element ? event.target.closest("button[data-filter]") : null;
+			if (!chips.length || !current) return;
+			event.preventDefault();
+			const index = chips.indexOf(current);
+			let next = index;
+			if (event.key === "ArrowLeft") next = (index - 1 + chips.length) % chips.length;
+			else if (event.key === "ArrowRight") next = (index + 1) % chips.length;
+			else if (event.key === "Home") next = 0;
+			else next = chips.length - 1;
+			chips[next].focus();
+			actions.filter(chips[next].getAttribute("data-filter") || "all");
+		});
 		for (const button of filter.querySelectorAll("button[data-filter]")) {
 			if (!button.hasAttribute("aria-pressed")) button.setAttribute("aria-pressed", "false");
 		}
+	}
+
+	if (list) {
+		list.addEventListener("keydown", (event) => {
+			const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
+			if (!keys.includes(event.key)) return;
+			const buttons = Array.from(list.querySelectorAll("button.activityRun"));
+			const current = event.target instanceof Element ? event.target.closest("button.activityRun") : null;
+			if (!buttons.length || !current) return;
+			event.preventDefault();
+			const index = buttons.indexOf(current);
+			let next = index;
+			if (event.key === "ArrowDown") next = Math.min(buttons.length - 1, index + 1);
+			else if (event.key === "ArrowUp") next = Math.max(0, index - 1);
+			else if (event.key === "Home") next = 0;
+			else next = buttons.length - 1;
+			buttons[next].focus();
+		});
 	}
 
 	/**
@@ -82,8 +146,9 @@ export function createActivityView(doc, actions) {
 			const rows = selectActivity(state);
 			if (count) count.textContent = rows.length ? rows.length + " shown" : "";
 			if (empty) {
-				const known = state.runs.order.length;
-				empty.hidden = rows.length > 0 || known === 0;
+				const copy = emptyCopy(load, state.ui.activityFilter, state.runs.order.length, rows.length);
+				empty.hidden = copy === "";
+				if (copy) empty.textContent = copy;
 			}
 			if (!list) return;
 			keyed(
