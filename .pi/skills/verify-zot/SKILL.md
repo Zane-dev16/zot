@@ -83,6 +83,17 @@ Activity + browser UI selectors (stable handles, no coordinates):
 - Open `http://127.0.0.1:18787/` → `#token` (aria `Device token`) + `#saveToken`, `#box` (aria `Prompt`) in `#composer`, `#status` (`live` vs `reconnecting` + `#retryCount`/`#retryNow`), `#activity` rows + per-row `Show tool events for …` button + `#refreshActivity`.
 - `GET /api/v1/runs` lists 100 newest; Activity renders newest 30 with title + state + time and count in `#activityCount`.
 
+Screenshots — four real PNGs through a headless browser, no Playwright/npm:
+
+```sh
+bash scripts/verify-shots.sh /tmp/zot-shots   # or EVIDENCE_DIR=/tmp/zot-shots
+# PASS shot pairing|chat|approvals|activity (1280x800, N bytes) <path>
+```
+
+Discovery: `ZOT_BROWSER` (or `ZOT_AGENT_BROWSER`) for the agent-browser CLI, `ZOT_CHROME` for Chrome/Chromium, then PATH and common install paths. No browser prints `SKIP` and exits 2. The script boots its own daemon on `ZOT_SHOTS_PORT` (default 18788) with a tmp db, pairs, types the token into `#token` (never a URL), fixes the viewport at `1280x800`, and writes `pairing.png`, `chat.png`, `approvals.png`, `activity.png` to the evidence dir (tmp path printed when none given). `scripts/prove.sh` runs it; a resolved browser plus a failed assertion fails the gate, otherwise the gate prints `SKIP browser screenshots (...)`.
+
+Pairing selector contract (single source for the harness): `#auth` holds the pairing entry, `#token` is the device-token field (aria-label `Device token`), `#saveToken` saves it. Keep those handles through UI rework or update `scripts/verify-shots.sh` in the same change. A failure names the screen and the wait/selector that broke, or says `not a usable image` for a missing/wrong-size/undersized PNG; the printed evidence dir keeps the PNGs and `daemon.log`.
+
 ## Evidence
 
 Capture action plus resulting state to `<evidence-dir>/` (proof artifacts survive cleanup — copy before `rm -rf $TMPDIR`):
@@ -91,6 +102,7 @@ Capture action plus resulting state to `<evidence-dir>/` (proof artifacts surviv
 - `run.json` — `GET /api/v1/runs/:id` showing terminal state (`done`)
 - `events.json` — `GET /api/v1/runs/:id/events?since=0` showing side effects
 - `daemon.log` — tail of daemon log on failure
+- `pairing.png`, `chat.png`, `approvals.png`, `activity.png` — the four browser screens (see Drive)
 
 Verify side effects alongside what is visible: run state `done` AND `tool_event` row / `result_ref` present. A 401 without token and 409 on bad approve→cancel transition are pass criteria, not failures.
 

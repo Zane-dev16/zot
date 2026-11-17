@@ -78,4 +78,16 @@ else
 	echo "SKIP rn checks (installed deps absent)"
 fi
 
+# Browser screenshots. A resolved browser that misses an assertion must fail the
+# gate. Hosts without one say SKIP instead of pretending a screenshot passed;
+# scripts/verify-shots.sh owns discovery and prints what is missing.
+SHOTS_RC=0
+bash scripts/verify-shots.sh || SHOTS_RC=$?
+if [ "$SHOTS_RC" = "2" ]; then
+	echo "SKIP browser screenshots (no browser resolved; set ZOT_BROWSER and ZOT_CHROME)"
+elif [ "$SHOTS_RC" != "0" ]; then
+	echo "FAIL browser screenshots (verify-shots.sh exit ${SHOTS_RC})"
+	exit 1
+fi
+
 echo "ALL PASS"
