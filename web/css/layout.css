@@ -116,27 +116,19 @@
 	gap: 16px;
 }
 
-/* One view is active at a time. Until navigation ships with the approvals
-   milestone the inactive views stay laid out (a single scroll column) so the
-   pre-existing screenshot harness can still drive #activity without a nav
-   click. The approvals milestone flips this to display:none and updates the
-   harness to click #navApprovals / #navActivity first. */
+/* Exactly one section.view carries data-active; the rest are not laid out at
+   all. The renderer sets the attribute and the screenshot harness navigates
+   with #navChat/#navApprovals/#navActivity/#navPairing before asserting. */
 .view {
-	display: flex;
+	display: none;
 	flex-direction: column;
 	gap: var(--gap);
 	min-width: 0;
 	min-height: 0;
 }
 
-.view {
-	border-top: 1px solid var(--line);
-	padding-top: var(--pad);
-}
-
-#view-chat {
-	border-top: 0;
-	padding-top: 0;
+.view[data-active] {
+	display: flex;
 }
 
 #inspector {

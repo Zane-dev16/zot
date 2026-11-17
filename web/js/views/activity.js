@@ -44,7 +44,7 @@ export function createActivityView(doc, actions) {
 			class: "activityRun",
 			type: "button",
 			"aria-label": "Show tool events for " + titleOf(run),
-			onclick: () => actions.select(run.id),
+			onclick: (event) => actions.select(run.id, event.currentTarget),
 		});
 		return h("li", { dataset: { runId: run.id, state: "" } }, button);
 	}

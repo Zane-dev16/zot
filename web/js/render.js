@@ -1,12 +1,15 @@
-// The shell renderer. It reads state, writes the shell chrome, and delegates
-// each surface to its view module. Views never fetch and never hold mutable
-// state of their own; the keyed reconcilers in dom.js keep node identity.
+// The shell renderer. It reads state, writes the shell chrome (topbar, sidebar,
+// active view, live region), and delegates each surface to its view module.
+// Views never fetch and never hold mutable state; dom.js keyed reconcilers keep
+// node identity so focus survives a re-render.
 
 import { announce } from "./dom.js";
-import { relTime, shortDuration, shortId, stateLabel, titleOf } from "./format.js";
-import { selectPendingCount, selectRun } from "./store.js";
+import { shortDuration } from "./format.js";
+import { selectPendingCount } from "./store.js";
 import { createActivityView } from "./views/activity.js";
+import { createApprovalsView } from "./views/approvals.js";
 import { createChatView } from "./views/chat.js";
+import { createInspectorView } from "./views/inspector.js";
 import { createPairingView } from "./views/pairing.js";
 
 const VIEW_TITLES = {
@@ -37,9 +40,8 @@ const STATUS_KINDS = {
 /**
  * @param {Document} doc
  * @param {object} actions
- * @param {{onVariant?: (variant: string) => void}} [hooks]
  */
-export function createRenderer(doc, actions, hooks = {}) {
+export function createRenderer(doc, actions) {
 	const app = doc.getElementById("app");
 	const status = doc.getElementById("status");
 	const retryCount = doc.getElementById("retryCount");
@@ -51,33 +53,25 @@ export function createRenderer(doc, actions, hooks = {}) {
 	const runsCount = doc.getElementById("runsCount");
 	const approvalsCount = doc.getElementById("approvalsCount");
 	const navs = Array.from(doc.querySelectorAll("nav#sidebar a[data-view]"));
+	const sections = {
+		chat: doc.getElementById("view-chat"),
+		approvals: doc.getElementById("view-approvals"),
+		activity: doc.getElementById("view-activity"),
+		pairing: doc.getElementById("view-pairing"),
+	};
 	const live = doc.getElementById("live");
-	const inspector = doc.getElementById("inspector");
-	const inspectorTitle = doc.getElementById("inspectorTitle");
-	const inspectorTabs = doc.getElementById("inspectorTabs");
-	const inspectorBody = doc.getElementById("inspectorBody");
-	const inspectorClose = doc.getElementById("inspectorClose");
-	const inspectorGoApprove = doc.getElementById("inspectorGoApprove");
 
 	const chat = createChatView(doc, actions);
+	const approvals = createApprovalsView(doc, actions);
 	const activity = createActivityView(doc, actions);
 	const pairing = createPairingView(doc, actions);
+	const inspector = createInspectorView(doc, actions);
 
 	let lastAnnounced = "";
 	let lastConn = "";
 
 	if (retryNow) retryNow.addEventListener("click", () => actions.retryNow());
-	if (variantSwitch) {
-		variantSwitch.addEventListener("change", () => actions.variant(variantSwitch.value));
-	}
-	if (inspectorClose) inspectorClose.addEventListener("click", () => actions.inspectorToggle(false));
-	if (inspectorTabs) {
-		inspectorTabs.addEventListener("click", (event) => {
-			const target = event.target instanceof Element ? event.target.closest("button[data-tab]") : null;
-			if (target) actions.inspectorTab(target.getAttribute("data-tab") || "details");
-		});
-	}
-	if (inspectorGoApprove) inspectorGoApprove.addEventListener("click", () => actions.goApprove());
+	if (variantSwitch) variantSwitch.addEventListener("change", () => actions.variant(variantSwitch.value));
 	for (const nav of navs) {
 		nav.addEventListener("click", (event) => {
 			event.preventDefault();
@@ -92,7 +86,9 @@ export function createRenderer(doc, actions, hooks = {}) {
 		const kind = STATUS_KINDS[state.conn.status] || "connecting";
 		let text = CONN_TEXT[state.conn.status] || "connecting";
 		if (state.conn.status === "reconnecting" && state.conn.attempt > 0) text = "reconnecting " + state.conn.attempt;
-		if (state.conn.status === "auth" && (state.auth.status === "none" || state.auth.status === "unknown")) text = "unpaired";
+		if (state.conn.status === "auth") {
+			text = state.auth.status === "rejected" ? "auth failed" : "unpaired";
+		}
 		if (status) {
 			status.textContent = text;
 			status.dataset.kind = kind;
@@ -101,9 +97,10 @@ export function createRenderer(doc, actions, hooks = {}) {
 		if (viewTitle) viewTitle.textContent = VIEW_TITLES[state.ui.view] || "Chat";
 		if (daemon) {
 			const d = state.daemon;
-			const stateWord = d.status === "ready" ? "ready" : d.status === "starting" ? "starting" : d.status === "unreachable" ? "unreachable" : "unknown";
+			const word =
+				d.status === "ready" ? "ready" : d.status === "starting" ? "starting" : d.status === "unreachable" ? "unreachable" : "unknown";
 			daemon.dataset.kind = d.status || "unknown";
-			daemon.textContent = stateWord + (d.version ? " · v" + d.version : "") + (d.uptimeMs ? " · " + shortDuration(d.uptimeMs) : "");
+			daemon.textContent = word + (d.version ? " · v" + d.version : "") + (d.uptimeMs ? " · " + shortDuration(d.uptimeMs) : "");
 		}
 		if (build) {
 			if (state.builds.error || !state.builds.hash) {
@@ -122,7 +119,6 @@ export function createRenderer(doc, actions, hooks = {}) {
 	 */
 	function renderSidebar(state) {
 		const pending = selectPendingCount(state);
-		const total = state.runs.order.length;
 		for (const nav of navs) {
 			const view = nav.getAttribute("data-view");
 			if (view === state.ui.view) nav.setAttribute("aria-current", "page");
@@ -132,105 +128,30 @@ export function createRenderer(doc, actions, hooks = {}) {
 			approvalsCount.hidden = pending === 0;
 			approvalsCount.textContent = pending + " pending";
 		}
-		if (runsCount) runsCount.textContent = String(total);
+		if (runsCount) runsCount.textContent = String(state.runs.order.length);
 	}
 
 	/**
 	 * @param {object} state
 	 */
-	function renderInspector(state) {
-		if (!inspector) return;
-		const run = selectRun(state, state.ui.selectedRunId);
-		inspector.dataset.collapsed = state.ui.inspectorOpen ? "false" : "true";
-		if (inspectorTitle) inspectorTitle.textContent = run ? titleOf(run) : "Inspector";
-		if (inspectorTabs) {
-			for (const tab of inspectorTabs.querySelectorAll("button[data-tab]")) {
-				const active = tab.getAttribute("data-tab") === state.ui.inspectorTab;
-				tab.setAttribute("aria-selected", active ? "true" : "false");
-			}
+	function renderViews(state) {
+		for (const [name, section] of Object.entries(sections)) {
+			if (!section) continue;
+			if (name === state.ui.view) section.dataset.active = "true";
+			else delete section.dataset.active;
 		}
-		if (inspectorGoApprove) inspectorGoApprove.hidden = true;
-		if (!inspectorBody) return;
-		if (!run) {
-			if (inspectorBody.dataset.signature === "empty") return;
-			inspectorBody.dataset.signature = "empty";
-			const p = doc.createElement("p");
-			p.className = "empty";
-			p.textContent = "select a run";
-			inspectorBody.replaceChildren(p);
-			return;
-		}
-		renderInspectorDetails(run, state, inspectorBody, doc);
 	}
 
 	/**
-	 * @param {object} run
 	 * @param {object} state
-	 * @param {HTMLElement} body
-	 * @param {Document} document_
 	 */
-	function renderInspectorDetails(run, state, body, document_) {
-		const rows = [
-			["id", shortId(run.id)],
-			["state", stateLabel(run.state)],
-			["attempt", String(Number(run.attempt) || 1)],
-			["created", relTime(run.createdAt) || "—"],
-			["updated", relTime(run.updatedAt) || "—"],
-		];
-		if (run.pendingTool) rows.push(["waiting on", run.pendingTool]);
-		const signature = JSON.stringify([rows, state.ui.inspectorTab, run.toolEvents.length]);
-		if (body.dataset.signature === signature) return;
-		body.dataset.signature = signature;
-		body.replaceChildren();
-		if (state.ui.inspectorTab === "events") {
-			const list = document_.createElement("div");
-			list.className = "toolEventList";
-			if (run.toolEvents.length === 0) {
-				const p = document_.createElement("p");
-				p.className = "empty";
-				p.textContent = "no tool events yet";
-				list.appendChild(p);
-			}
-			for (const event of run.toolEvents) {
-				const row = document_.createElement("div");
-				row.className = "toolEvent";
-				row.dataset.tool = event.tool;
-				row.dataset.source = event.source;
-				const name = document_.createElement("span");
-				name.className = "toolEventName";
-				name.textContent = event.tool + (event.source === "request" ? " · request" : " · " + (event.resultRef || event.argsHash.slice(0, 8) || "result"));
-				const when = document_.createElement("span");
-				when.className = "toolEventWhen";
-				when.textContent = relTime(event.createdAt) || "";
-				row.appendChild(name);
-				row.appendChild(when);
-				list.appendChild(row);
-			}
-			body.appendChild(list);
-			return;
-		}
-		const dl = document_.createElement("dl");
-		dl.className = "details";
-		for (const [key, value] of rows) {
-			const row = document_.createElement("div");
-			row.className = "detailRow";
-			const dt = document_.createElement("dt");
-			dt.textContent = key;
-			const dd = document_.createElement("dd");
-			dd.textContent = value;
-			row.appendChild(dt);
-			row.appendChild(dd);
-			dl.appendChild(row);
-		}
-		body.appendChild(dl);
-		const promptLabel = document_.createElement("p");
-		promptLabel.className = "muted";
-		promptLabel.textContent = "prompt";
-		body.appendChild(promptLabel);
-		const prompt = document_.createElement("pre");
-		prompt.className = "inspectorPrompt";
-		prompt.textContent = run.prompt || "—";
-		body.appendChild(prompt);
+	function renderLive(state) {
+		if (!live || state.conn.status === lastConn) return;
+		lastConn = state.conn.status;
+		if (state.conn.status === "live") lastAnnounced = announce(live, "connection live");
+		else if (state.conn.status === "reconnecting") lastAnnounced = announce(live, "connection lost, reconnecting");
+		else if (state.conn.status === "offline") lastAnnounced = announce(live, "browser offline");
+		else if (state.conn.status === "auth" && state.auth.status === "rejected") lastAnnounced = announce(live, "daemon rejected the token");
 	}
 
 	/**
@@ -245,19 +166,13 @@ export function createRenderer(doc, actions, hooks = {}) {
 		}
 		renderTopbar(state);
 		renderSidebar(state);
-		renderInspector(state);
+		renderViews(state);
 		chat.update(state, now);
+		approvals.update(state, now);
 		activity.update(state, now);
 		pairing.update(state, now);
-		if (live) {
-			if (state.conn.status !== lastConn) {
-				if (state.conn.status === "live") lastAnnounced = announce(live, "connection live");
-				else if (state.conn.status === "reconnecting") lastAnnounced = announce(live, "connection lost, reconnecting");
-				else if (state.conn.status === "offline") lastAnnounced = announce(live, "browser offline");
-				else if (state.conn.status === "auth" && state.auth.status === "rejected") lastAnnounced = announce(live, "daemon rejected the token");
-				lastConn = state.conn.status;
-			}
-		}
+		inspector.update(state, now);
+		renderLive(state);
 		return lastAnnounced;
 	}
 

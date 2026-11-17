@@ -369,11 +369,18 @@ select {
 }
 
 #approvals li {
-	padding: 6px 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 8px 10px;
 }
 
 #approvals li[data-state="waiting_tool"] {
 	border-color: color-mix(in srgb, var(--state-waiting) 45%, var(--line));
+}
+
+#approvals li[data-state="queued"] {
+	border-color: var(--line-strong);
 }
 
 #approvals .approvalTitle {
@@ -381,6 +388,51 @@ select {
 	align-items: baseline;
 	gap: 8px;
 	min-width: 0;
+}
+
+#approvals .approvalTitle .runTitle {
+	flex: 1 1 auto;
+}
+
+.approvalNote {
+	font-size: var(--fs-xs);
+	color: var(--muted);
+	font-family: var(--mono);
+}
+
+.approvalNote[data-kind="error"] {
+	color: var(--state-failed);
+}
+
+.approvalNote[data-kind="busy"] {
+	color: var(--state-waiting);
+}
+
+.approvalNote:empty {
+	display: none;
+}
+
+#approvals .approvalRow {
+	margin-top: 2px;
+}
+
+.runNeedsApproval {
+	justify-self: start;
+	margin-top: 6px;
+	height: 24px;
+	padding: 0 8px;
+	border: 1px solid color-mix(in srgb, var(--state-waiting) 55%, var(--line));
+	border-radius: var(--radius);
+	background: transparent;
+	color: var(--state-waiting);
+	font: inherit;
+	font-size: var(--fs-xs);
+	font-family: var(--mono);
+	cursor: pointer;
+}
+
+.runNeedsApproval:hover {
+	background: color-mix(in srgb, var(--state-waiting) 12%, transparent);
 }
 
 /* --- activity ledger ---------------------------------------------------- */
@@ -562,13 +614,20 @@ button.activityRun:hover {
 
 .toolEvent {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr) auto;
 	gap: 8px;
 	align-items: baseline;
 	padding: 4px 0;
 	border-bottom: 1px solid var(--line);
 	font-family: var(--mono);
 	font-size: var(--fs-code);
+}
+
+.toolEvent .toolEventRef {
+	color: var(--muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .toolEvent .toolEventName {

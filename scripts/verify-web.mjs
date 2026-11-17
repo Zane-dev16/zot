@@ -57,6 +57,7 @@ const SELECTOR_CONTRACT = [
 	".runMeta",
 	".runTokens",
 	".runToolNote",
+	".runNeedsApproval",
 	".approvalRow",
 	'data-action="approve"',
 	'data-action="cancel"',

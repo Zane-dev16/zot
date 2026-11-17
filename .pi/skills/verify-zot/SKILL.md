@@ -42,7 +42,8 @@ One read-only check — is this instance worth driving?
 ```sh
 curl -s http://127.0.0.1:18787/healthz | grep -q '"state":"ready"'
 curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18787/api/v1/runs  # expect 401, proves auth gate
-test -f web/index.html && test -f web/app.js
+test -f web/index.html && test -f web/js/main.js && test -f web/build.json
+node scripts/verify-web.mjs   # module graph + build manifest + selector contract
 ```
 
 If health is not `ready`, stop and read `$LOG`. If `/api/v1/runs` is not 401 without token, the instance is wrong — do not drive it.
@@ -78,21 +79,29 @@ curl -s -X POST $B/api/v1/runs/$RUN/approve -H "$AUTH"  # -> running, then done
 curl -s "$B/api/v1/runs/$RUN/events?since=0" -H "$AUTH"  # tool_event with output
 ```
 
-Activity + browser UI selectors (stable handles, no coordinates):
+Browser UI selectors (stable handles, no coordinates). The shell is four views under one topbar; exactly one `section.view` carries `data-active` and the sidebar anchors switch it:
 
-- Open `http://127.0.0.1:18787/` → `#token` (aria `Device token`) + `#saveToken`, `#box` (aria `Prompt`) in `#composer`, `#status` (`live` vs `reconnecting` + `#retryCount`/`#retryNow`), `#activity` rows + per-row `Show tool events for …` button + `#refreshActivity`.
-- `GET /api/v1/runs` lists 100 newest; Activity renders newest 30 with title + state + time and count in `#activityCount`.
+- Shell: `#status` (`live` / `reconnecting N` / `offline` / `auth failed`, `data-kind` mirrors it), `#retryCount`, `#retryNow`, `#daemon`, `#build`, `#variantSwitch`, `#viewTitle`, `#live` (polite announcements).
+- Navigation: `#navChat`, `#navApprovals` (+ `#approvalsCount` badge, hidden at 0), `#navActivity` (+ `#runsCount`), `#navPairing`; the active view is `#view-chat` / `#view-approvals` / `#view-activity` / `#view-pairing` with `data-active`.
+- Chat: `#log article[data-run-id][data-state]` with `.runTitle`, `.runBadge`, `.runMeta`, `.runTokens`; `.runNeedsApproval` links into Approvals (Chat has no Approve/Cancel buttons); `#composer` with `#box` (aria `Prompt`) and `#send`.
+- Approvals: `#approvals li[data-run-id][data-state]` containing `.approvalRow` with `[data-action="approve"]` / `[data-action="cancel"]`; `#approvalsRefresh`, `#approvalsEmpty`, `#approvalsError`. This view is the only surface that performs a transition.
+- Activity: `#activity li[data-run-id]` rows, `button.activityRun` (aria `Show tool events for <title>`), `#activityFilter`, `#activityCount` (`N shown`), `#refreshActivity`, `#activityEmpty`, `#activityError`.
+- Pairing: `#auth` card with `#pairStart`, `#pairCode`, `#pairExpiry`, `#pairConfirm`, `#pairStatus` (`data-kind`), `#pairNote`, `#deviceSummary`, `#pairFallback` (open when no token) holding `#token` (aria `Device token`) + `#saveToken`, `#tokenError`, `#signOut`.
+- Inspector: `#inspector` with `#inspectorTitle`, `#inspectorTabs button[data-tab="details"|"events"]` (`aria-selected`), `#inspectorBody`, `.toolEvent[data-tool][data-source]`, `#inspectorClose`, `#inspectorGoApprove`. Opening a row from Chat, Approvals, or Activity selects it; Escape closes the pane.
+- `GET /api/v1/runs` lists 100 newest; Activity renders newest 30 with title + state + time and count in `#activityCount`; a stream-only run gets its title from `GET /runs/:id` (POST /runs publishes no `run.created`).
 
-Screenshots — four real PNGs through a headless browser, no Playwright/npm:
+Screenshots — five real PNGs through a headless browser, no Playwright/npm. Each screen navigates with its `#nav*` handle and asserts its own `data-active` before capturing:
 
 ```sh
 bash scripts/verify-shots.sh /tmp/zot-shots   # or EVIDENCE_DIR=/tmp/zot-shots
-# PASS shot pairing|chat|approvals|activity (1280x800, N bytes) <path>
+# PASS shot pairing|chat|approvals|activity|inspector (1280x800, N bytes) <path>
 ```
 
-Discovery: `ZOT_BROWSER` (or `ZOT_AGENT_BROWSER`) for the agent-browser CLI, `ZOT_CHROME` for Chrome/Chromium, then PATH and common install paths. No browser prints `SKIP` and exits 2. The script boots its own daemon on `ZOT_SHOTS_PORT` (default 18788) with a tmp db, pairs, types the token into `#token` (never a URL), fixes the viewport at `1280x800`, and writes `pairing.png`, `chat.png`, `approvals.png`, `activity.png` to the evidence dir (tmp path printed when none given). `scripts/prove.sh` runs it; a resolved browser plus a failed assertion fails the gate, otherwise the gate prints `SKIP browser screenshots (...)`.
+Screens: `pairing.png` (pairing view, no token), `chat.png` (stream live, completion text), `approvals.png` (Approvals view: `waiting_tool` row + Approve/Cancel), `activity.png` (Activity view, titled rows + `N shown`), `inspector.png` (Activity row selected → tool events tab).
 
-Pairing selector contract (single source for the harness): `#auth` holds the pairing entry, `#token` is the device-token field (aria-label `Device token`), `#saveToken` saves it. Keep those handles through UI rework or update `scripts/verify-shots.sh` in the same change. A failure names the screen and the wait/selector that broke, or says `not a usable image` for a missing/wrong-size/undersized PNG; the printed evidence dir keeps the PNGs and `daemon.log`.
+Discovery: `ZOT_BROWSER` (or `ZOT_AGENT_BROWSER`) for the agent-browser CLI, `ZOT_CHROME` for Chrome/Chromium, then PATH and common install paths. No browser prints `SKIP` and exits 2. The script boots its own daemon on `ZOT_SHOTS_PORT` (default 18788) with a tmp db, pairs, types the token into `#token` (never a URL), fixes the viewport at `1280x800`, and writes `pairing.png`, `chat.png`, `approvals.png`, `activity.png`, `inspector.png` to the evidence dir (tmp path printed when none given). `scripts/prove.sh` runs it; a resolved browser plus a failed assertion fails the gate, otherwise the gate prints `SKIP browser screenshots (...)`.
+
+Screenshot selector contract (single source for the harness): `#auth` holds the pairing entry and keeps `#token` (aria-label `Device token`) + `#saveToken`; `#log article[data-run-id][data-state]` is the Chat thread; `.approvalRow` lives only inside `#approvals li[data-run-id]`; `#activity li button.activityRun` and `#activityCount` (`N shown`) are the Activity ledger; `#inspector .toolEvent` is the tool-event detail. `scripts/verify-web.mjs` asserts this contract offline, so dropping a handle fails the gate before a browser starts. A failure names the screen and the wait/selector that broke, or says `not a usable image` for a missing/wrong-size/undersized PNG; the printed evidence dir keeps the PNGs and `daemon.log`.
 
 ## Evidence
 
@@ -102,7 +111,7 @@ Capture action plus resulting state to `<evidence-dir>/` (proof artifacts surviv
 - `run.json` — `GET /api/v1/runs/:id` showing terminal state (`done`)
 - `events.json` — `GET /api/v1/runs/:id/events?since=0` showing side effects
 - `daemon.log` — tail of daemon log on failure
-- `pairing.png`, `chat.png`, `approvals.png`, `activity.png` — the four browser screens (see Drive)
+- `pairing.png`, `chat.png`, `approvals.png`, `activity.png`, `inspector.png` — the five browser screens (see Drive)
 
 Verify side effects alongside what is visible: run state `done` AND `tool_event` row / `result_ref` present. A 401 without token and 409 on bad approve→cancel transition are pass criteria, not failures.
 

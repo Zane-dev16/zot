@@ -290,14 +290,19 @@ export function reduce(state, action) {
 			if (!id || !Array.isArray(action.events)) return state;
 			const prev = state.runs.byId[id];
 			if (!prev) return state;
+			// Reconcile, never duplicate: a live frame seeded the same tool event
+			// already (matching tool + source), so the REST row is skipped.
 			const events = [...prev.toolEvents];
 			for (const ev of action.events) {
 				if (!ev) continue;
 				if (events.some((e) => e.id && e.id === ev.id)) continue;
+				const source = ev.resultRef === "request" ? "request" : "result";
+				const tool = String(ev.tool || "tool");
+				if (events.some((e) => e.tool === tool && e.source === source)) continue;
 				events.push({
 					id: String(ev.id || ""),
-					tool: String(ev.tool || "tool"),
-					source: ev.resultRef === "request" ? "request" : "result",
+					tool,
+					source,
 					resultRef: ev.resultRef || "",
 					argsHash: ev.argsHash || "",
 					createdAt: Number(ev.createdAt) || 0,

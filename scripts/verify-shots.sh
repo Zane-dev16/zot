@@ -3,13 +3,17 @@
 # that drives a real headless Chrome over CDP. No npm dependency, no Playwright.
 #
 # One command boots an isolated daemon (temp port + temp db), pairs a browser
-# device, drives the UI through its documented selectors, and captures four
+# device, drives the UI through its documented selectors, and captures five
 # full-window PNGs into an evidence directory:
 #
-#   pairing.png   the auth/pairing surface before a token is saved
+#   pairing.png   the pairing view (#view-pairing) before a token is saved
 #   chat.png      token accepted, stream live, completion text rendered
-#   approvals.png a run paused in waiting_tool with its Approve/Cancel row
-#   activity.png  #activity populated with titled run rows
+#   approvals.png the Approvals view: a waiting_tool run and its Approve/Cancel
+#   activity.png  the Activity view: #activity populated with titled run rows
+#   inspector.png selecting an Activity row opens its tool events
+#
+# Views navigate through #navChat/#navApprovals/#navActivity/#navPairing; each
+# screen asserts its own `data-active` before capturing.
 #
 # Viewport is fixed at 1280x800 so screenshots compare before/after a UI change.
 #
@@ -29,7 +33,7 @@
 #   ZOT_SHOTS_PORT         daemon port (default 18788; 18787 is prove.sh's)
 #   ZOT_SHOTS_MIN_BYTES    minimum plausible PNG size (default 10000)
 #
-# Exit codes: 0 all four screens passed; 2 browser unavailable (safe to SKIP);
+# Exit codes: 0 all five screens passed; 2 browser unavailable (safe to SKIP);
 # 1 any boot, interaction, or image assertion failed. Evidence is preserved on
 # failure and the evidence path is printed on every run.
 set -euo pipefail
@@ -338,6 +342,11 @@ assert_true "pairing surface is initial state" '(() => {
 		save && save.offsetWidth > 0
 	);
 })()'
+assert_true "pairing view is active" '(() => {
+	const view = document.querySelector("#view-pairing");
+	const start = document.querySelector("#pairStart");
+	return Boolean(view && view.hasAttribute("data-active") && start && start.offsetWidth > 0);
+})()'
 capture pairing
 
 # --- chat screen ----------------------------------------------------------
@@ -358,21 +367,32 @@ assert_true "chat run is done in #log" '(() => {
 	const block = [...document.querySelectorAll("#log article")].find((a) => a.textContent.includes("echo[echo]: hello verify"));
 	return Boolean(block && block.dataset.state === "done");
 })()'
+assert_true "chat view is active" '(() => {
+	const view = document.querySelector("#view-chat");
+	return Boolean(view && view.hasAttribute("data-active"));
+})()'
 capture chat
 
 # --- approvals screen -----------------------------------------------------
+# Approvals are their own view: Chat and the Inspector never perform a run
+# transition (ADR-3), so the row lives in #view-approvals and the harness has to
+# navigate there before asserting. The run id is exported onto window so the
+# selector can interpolate it without shell-quoting a template literal.
 TOOL_RUN="$(create_run "tool approval" "tool: shell echo hi")" || fail "could not create tool run"
 wait_run_state "$TOOL_RUN" "waiting_tool"
+ab eval "window.__zotToolRun = '${TOOL_RUN}'" >/dev/null
+ab click "#navApprovals" >/dev/null
+wait_true "approvals view active" 'document.querySelector("#view-approvals[data-active]") !== null'
 wait_true "approval row visible" '(() => {
-	return [...document.querySelectorAll("#log article")].some((a) => {
-		const row = a.querySelector(".approvalRow");
-		return a.dataset.state === "waiting_tool" && row && row.offsetWidth > 0;
-	});
+	const item = document.querySelector(`#approvals [data-run-id="${window.__zotToolRun}"]`);
+	if (!item) return false;
+	const row = item.querySelector(".approvalRow");
+	return item.dataset.state === "waiting_tool" && Boolean(row) && row.offsetWidth > 0;
 })()'
 assert_true "approval row has Approve and Cancel" '(() => {
-	const block = [...document.querySelectorAll("#log article")].find((a) => a.dataset.state === "waiting_tool");
-	if (!block) return false;
-	const row = block.querySelector(".approvalRow");
+	const item = document.querySelector(`#approvals [data-run-id="${window.__zotToolRun}"]`);
+	if (!item) return false;
+	const row = item.querySelector(".approvalRow");
 	if (!row || row.offsetWidth === 0) return false;
 	const buttons = [...row.querySelectorAll("button")].map((b) => b.textContent.trim());
 	return buttons.some((t) => t.startsWith("Approve")) && buttons.includes("Cancel");
@@ -380,6 +400,8 @@ assert_true "approval row has Approve and Cancel" '(() => {
 capture approvals
 
 # --- activity screen ------------------------------------------------------
+ab click "#navActivity" >/dev/null
+wait_true "activity view active" 'document.querySelector("#view-activity[data-active]") !== null'
 ab click "#refreshActivity" >/dev/null
 wait_true "activity populated" 'document.querySelectorAll("#activity li button.activityRun").length >= 2'
 assert_true "activity rows are titled and count is shown" '(() => {
@@ -391,4 +413,21 @@ assert_true "activity rows are titled and count is shown" '(() => {
 })()'
 capture activity
 
-echo "PASS browser screenshots 4/4"
+# --- inspector screen -----------------------------------------------------
+# The newest Activity row is the waiting_tool run, so it already has a live
+# tool.request event; opening it must show the events tab with that tool.
+ab click "#activity li button.activityRun" >/dev/null
+wait_true "inspector shows tool events" 'document.querySelector("#inspector .toolEvent") !== null'
+assert_true "inspector is the selected run on the events tab" '(() => {
+	const title = document.querySelector("#inspectorTitle");
+	const tab = document.querySelector("#inspectorTabs button[data-tab='events']");
+	const row = document.querySelector("#inspector .toolEvent[data-tool]");
+	return Boolean(
+		title && title.textContent.includes("tool approval") &&
+		tab && tab.getAttribute("aria-selected") === "true" &&
+		row && row.dataset.tool
+	);
+})()'
+capture inspector
+
+echo "PASS browser screenshots 5/5"

@@ -6,7 +6,7 @@ import * as api from "./api.js";
 import { firstLine } from "./format.js";
 import { createRenderer } from "./render.js";
 import { createStream } from "./stream.js";
-import { createStore, initialState, selectCanFetch, selectCursor, selectDetailQueue } from "./store.js";
+import { createStore, initialState, selectCanFetch, selectCursor, selectDetailQueue, selectRun } from "./store.js";
 
 const TOKEN_KEY = "zot.token";
 const SINCE_KEY = "zot.since";
@@ -68,6 +68,8 @@ let stream = null;
 let rendering = false;
 let persistedCursor = "";
 const inflightDetails = new Set();
+const inflightEvents = new Set();
+let focusReturn = null;
 
 /** @type {{route: Function, variant: Function, saveToken: Function, signOut: Function, refreshRuns: Function, send: Function, approve: Function, cancel: Function, select: Function, inspectorToggle: Function, inspectorTab: Function, goApprove: Function, retryNow: Function, filter: Function}} */
 const actions = {
@@ -145,16 +147,31 @@ const actions = {
 
 	/**
 	 * @param {string} id
+	 * @param {Element|null} [origin] node focus returns to when the pane closes
 	 */
-	select(id) {
+	select(id, origin) {
+		const run = selectRun(getState(), id);
+		focusReturn = origin || null;
 		store.dispatch({ type: "ui.select", id });
+		store.dispatch({ type: "ui.inspectorTab", tab: run && run.toolEvents.length > 0 ? "events" : "details" });
+		if (run && run.toolEvents.length > 0) loadEvents(id);
 	},
 
 	/**
 	 * @param {boolean} open
 	 */
 	inspectorToggle(open) {
-		store.dispatch({ type: "ui.inspectorToggle", open });
+		const state = getState();
+		const next = open === undefined ? !state.ui.inspectorOpen : Boolean(open);
+		store.dispatch({ type: "ui.inspectorToggle", open: next });
+		if (!next && focusReturn && typeof focusReturn.focus === "function" && focusReturn.isConnected) {
+			focusReturn.focus();
+			focusReturn = null;
+		}
+	},
+
+	closeInspector() {
+		actions.inspectorToggle(false);
 	},
 
 	/**
@@ -164,7 +181,16 @@ const actions = {
 		store.dispatch({ type: "ui.inspectorTab", tab: tab === "events" ? "events" : "details" });
 	},
 
-	goApprove() {
+	loadEventsFromSelection() {
+		const state = getState();
+		if (state.ui.selectedRunId) loadEvents(state.ui.selectedRunId);
+	},
+
+	/**
+	 * @param {string} [id]
+	 */
+	goApprove(id) {
+		if (id) actions.select(id, null);
 		actions.route("approvals");
 	},
 
@@ -207,6 +233,23 @@ function persistCursor(state) {
 	if (!cursor || cursor === persistedCursor) return;
 	persistedCursor = cursor;
 	writeStorage(SINCE_KEY, cursor);
+}
+
+/**
+ * Reconcile one run's tool events from REST (snake_case normalised in api.js).
+ * The store merges; a live-seeded event is never duplicated.
+ * @param {string} id
+ */
+function loadEvents(id) {
+	const state = getState();
+	if (!id || !selectCanFetch(state) || inflightEvents.has(id)) return;
+	inflightEvents.add(id);
+	api.listEvents(state.auth.token, id, 0)
+		.then((events) => store.dispatch({ type: "run.eventsLoaded", id, events }))
+		.catch((err) => {
+			if (err && err.status === 401) rejectAuth("the daemon rejected that token");
+		})
+		.finally(() => inflightEvents.delete(id));
 }
 
 /** Fill title/prompt for ids the stream named before REST did (one fetch each). */
@@ -419,6 +462,13 @@ window.addEventListener("online", () => {
 	if (stream) stream.resume();
 	else if (getState().auth.token) connect();
 	loadHealthz();
+});
+
+window.addEventListener("keydown", (event) => {
+	if (event.key !== "Escape") return;
+	if (!getState().ui.inspectorOpen) return;
+	event.preventDefault();
+	actions.closeInspector();
 });
 
 boot();
