@@ -8,6 +8,15 @@ export const APPROVABLE_STATES = new Set(["queued", "waiting_tool"]);
 const CHAT_CAP = 12;
 const ACTIVITY_CAP = 30;
 const SEEN_CAP = 4000;
+const TOKENS_CAP = 64 * 1024;
+const TRUNCATED = "…truncated\n";
+
+/** @param {unknown} value @returns {number|null} */
+function numericSeq(value) {
+	if (value === null || value === undefined || value === "") return null;
+	const n = Number(value);
+	return Number.isFinite(n) ? n : null;
+}
 
 /**
  * @param {object} [overrides] shallow per-section overrides for tests
@@ -28,7 +37,7 @@ export function initialState(overrides = {}) {
 		auth: { status: "unknown", token: "", error: null },
 		builds: { hash: "", moduleCount: 0, error: null },
 		daemon: { status: "unknown", version: "", uptimeMs: 0, error: null },
-		runs: { byId: {}, order: [], load: { status: "idle", error: null, at: 0, stamp: 0 } },
+		runs: { byId: {}, order: [], detail: {}, load: { status: "idle", error: null, at: 0, stamp: 0 } },
 		approvals: { pending: {}, error: {} },
 		pairing: { status: "idle", code: "", expiresAt: 0, device: null, error: null, attempts: [] },
 		chat: { hint: "" },
@@ -134,7 +143,7 @@ export function reduce(state, action) {
 			return {
 				...state,
 				auth: { status: "none", token: "", error: null },
-				runs: { byId: {}, order: [], load: { status: "idle", error: null, at: 0, stamp: state.runs.load.stamp } },
+				runs: { byId: {}, order: [], detail: {}, load: { status: "idle", error: null, at: 0, stamp: state.runs.load.stamp } },
 				stream: { ...state.stream, seen: {} },
 			};
 
@@ -172,10 +181,15 @@ export function reduce(state, action) {
 		case "runs.loadOk": {
 			const stamp = Number(action.stamp) || 0;
 			if (stamp && stamp < state.runs.load.stamp) return state;
-			const merged = mergeRuns(state.runs, Array.isArray(action.runs) ? action.runs : []);
+			const rows = Array.isArray(action.runs) ? action.runs : [];
+			const merged = mergeRuns(state.runs, rows);
+			let detail = merged.detail || {};
+			for (const row of rows) {
+				if (row && row.id != null) detail = without(detail, String(row.id));
+			}
 			return {
 				...state,
-				runs: { ...merged, load: { status: "ready", error: null, at: Number(action.at) || 0, stamp: state.runs.load.stamp } },
+				runs: { ...merged, detail, load: { status: "ready", error: null, at: Number(action.at) || 0, stamp: state.runs.load.stamp } },
 			};
 		}
 
@@ -198,6 +212,7 @@ export function reduce(state, action) {
 
 		case "run.upsert": {
 			const merged = mergeRuns(state.runs, [action.run]);
+			if (action.run && action.run.id != null) merged.detail = without(merged.detail || {}, String(action.run.id));
 			return { ...state, runs: merged };
 		}
 
@@ -222,7 +237,9 @@ export function reduce(state, action) {
 			const id = action.id == null ? "" : String(action.id);
 			if (!id) return state;
 			const prev = state.runs.byId[id] || blankRun(id);
-			const next = { ...prev, tokensText: prev.tokensText + String(action.text == null ? "" : action.text) };
+			const appended = prev.tokensText + String(action.text == null ? "" : action.text);
+			const tokensText = appended.length > TOKENS_CAP ? TRUNCATED + appended.slice(-TOKENS_CAP) : appended;
+			const next = { ...prev, tokensText };
 			return { ...state, runs: { ...state.runs, byId: { ...state.runs.byId, [id]: next } } };
 		}
 
@@ -289,6 +306,31 @@ export function reduce(state, action) {
 			return { ...state, runs: { ...state.runs, byId: { ...state.runs.byId, [id]: { ...prev, toolEvents: events } } } };
 		}
 
+		case "run.detailStart": {
+			const id = action.id == null ? "" : String(action.id);
+			if (!id) return state;
+			return { ...state, runs: { ...state.runs, detail: { ...(state.runs.detail || {}), [id]: "loading" } } };
+		}
+
+		case "run.detailOk": {
+			const id = action.id == null ? "" : String(action.id);
+			if (!id) return state;
+			const merged = mergeRuns(state.runs, [action.run]);
+			merged.detail = without(merged.detail || {}, id);
+			return { ...state, runs: merged };
+		}
+
+		case "run.detailErr": {
+			const id = action.id == null ? "" : String(action.id);
+			if (!id) return state;
+			return { ...state, runs: { ...state.runs, detail: without(state.runs.detail || {}, id) } };
+		}
+
+		case "stream.cursor": {
+			const cursor = String(action.cursor == null ? "" : action.cursor);
+			return { ...state, stream: { ...state.stream, cursor } };
+		}
+
 		case "chat.hint":
 			return { ...state, chat: { hint: String(action.hint == null ? "" : action.hint) } };
 
@@ -300,7 +342,11 @@ export function reduce(state, action) {
 				// Heartbeats carry no seq and must never become a cursor.
 				return { ...state, conn: { ...state.conn, lastFrameAt: at || state.conn.lastFrameAt }, stream: { ...state.stream, lastFrameAt: at || state.stream.lastFrameAt } };
 			}
-			const key = frame.id == null ? "" : "id:" + String(frame.id);
+			// Dedupe by seq when the frame has a finite numeric one, else by its
+			// id (tool_event replay frames are "tool-<rowid>"). A fresh-boot daemon
+			// replays from sqlite ignoring `since`, so per-frame dedupe is the rule.
+			const seq = numericSeq(frame.seq);
+			const key = seq !== null ? "seq:" + seq : frame.id == null ? "" : "id:" + String(frame.id);
 			if (key && state.stream.seen[key]) {
 				return { ...state, conn: { ...state.conn, lastFrameAt: at || state.conn.lastFrameAt } };
 			}
@@ -313,50 +359,19 @@ export function reduce(state, action) {
 			const framed = {
 				...state,
 				conn: { ...state.conn, lastFrameAt: at || state.conn.lastFrameAt },
-				stream: { ...state.stream, seen, lastFrameAt: at || state.stream.lastFrameAt },
+				stream: {
+					...state.stream,
+					seen,
+					lastFrameAt: at || state.stream.lastFrameAt,
+					// Only a numeric seq may move the cursor: heartbeat frames have
+					// no seq, and persisting "hb-<ms>" silently breaks replay.
+					cursor: seq !== null ? String(seq) : state.stream.cursor,
+				},
 			};
 			const id = frame.runId == null ? "" : String(frame.runId);
 			const eventId = frame.id == null ? "" : String(frame.id);
-			switch (frame.type) {
-				case "run.created": {
-					if (!id) return framed;
-					const createdAt = at || 0;
-					const existing = state.runs.byId[id];
-					return reduce(framed, {
-						type: "run.upsert",
-						run: {
-							id,
-							title: typeof frame.title === "string" ? frame.title : "",
-							titleSource: frame.title ? "server" : "pending",
-							state: frame.state ? String(frame.state) : existing ? existing.state : "",
-							createdAt: existing && existing.createdAt ? existing.createdAt : createdAt,
-							updatedAt: createdAt || (existing ? existing.updatedAt : 0),
-						},
-					});
-				}
-				case "run.state":
-					return reduce(framed, {
-						type: "run.patch",
-						id,
-						at,
-						patch: { state: String(frame.state || "") },
-					});
-				case "run.done":
-					return reduce(framed, {
-						type: "run.patch",
-						id,
-						at,
-						patch: { state: String(frame.state || "done"), pendingTool: null, finishedAt: at || null },
-					});
-				case "run.token":
-					return reduce(framed, { type: "run.tokens", id, text: frame.token });
-				case "tool.request":
-					return reduce(framed, { type: "run.toolRequest", id, tool: frame.tool, at, eventId });
-				case "tool.result":
-					return reduce(framed, { type: "run.toolResult", id, tool: frame.tool, ok: frame.ok !== false, at, eventId });
-				default:
-					return framed;
-			}
+			const applied = applyRunFrame(framed, frame, id, eventId, at);
+			return id ? requestDetail(applied, id) : applied;
 		}
 
 		case "approve.begin": {
@@ -380,6 +395,75 @@ export function reduce(state, action) {
 		default:
 			return state;
 	}
+}
+
+/**
+ * Apply one stream frame to a run.
+ * @param {object} state
+ * @param {object} frame
+ * @param {string} id run id ("" when the frame carries none)
+ * @param {string} eventId frame id used to dedupe tool events
+ * @param {number} at frame timestamp
+ * @returns {object} next state
+ */
+function applyRunFrame(state, frame, id, eventId, at) {
+	switch (frame.type) {
+		case "run.created": {
+			if (!id) return state;
+			const existing = state.runs.byId[id];
+			return reduce(state, {
+				type: "run.upsert",
+				run: {
+					id,
+					// run.created is published by the scheduler path only; the
+					// interactive POST never publishes it, so its title is merged
+					// from the POST response instead (M1 defect fix).
+					title: typeof frame.title === "string" ? frame.title : "",
+					titleSource: frame.title ? "server" : "pending",
+					state: frame.state ? String(frame.state) : existing ? existing.state : "",
+					createdAt: existing && existing.createdAt ? existing.createdAt : at || 0,
+					updatedAt: at || (existing ? existing.updatedAt : 0),
+				},
+			});
+		}
+		case "run.state":
+			return reduce(state, {
+				type: "run.patch",
+				id,
+				at,
+				patch: { state: String(frame.state || "") },
+			});
+		case "run.done":
+			return reduce(state, {
+				type: "run.patch",
+				id,
+				at,
+				patch: { state: String(frame.state || "done"), pendingTool: null, finishedAt: at || null },
+			});
+		case "run.token":
+			return reduce(state, { type: "run.tokens", id, text: frame.token });
+		case "tool.request":
+			return reduce(state, { type: "run.toolRequest", id, tool: frame.tool, at, eventId });
+		case "tool.result":
+			return reduce(state, { type: "run.toolResult", id, tool: frame.tool, ok: frame.ok !== false, at, eventId });
+		default:
+			return state;
+	}
+}
+
+/**
+ * Queue one GET /runs/:id for a run the stream named before REST did. Idempotent:
+ * repeated frames for the same unknown id queue exactly one fetch.
+ * @param {object} state
+ * @param {string} id
+ * @returns {object} next state
+ */
+function requestDetail(state, id) {
+	const run = state.runs.byId[id];
+	if (!run || run.titleSource === "server") return state;
+	const detail = state.runs.detail || {};
+	if (detail[id]) return state;
+	return { ...state, runs: { ...state.runs, detail: { ...detail, [id]: "queued" } } };
 }
 
 /**
@@ -532,6 +616,16 @@ export function selectCanFetch(state) {
  */
 export function selectCursor(state) {
 	return String(state.stream.cursor || "");
+}
+
+/**
+ * Ids whose detail fetch is queued (unknown-id stream frames).
+ * @param {object} state
+ * @returns {string[]}
+ */
+export function selectDetailQueue(state) {
+	const detail = state.runs.detail || {};
+	return Object.keys(detail).filter((id) => detail[id] === "queued");
 }
 
 /**

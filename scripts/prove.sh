@@ -50,6 +50,7 @@ node scripts/verify-stream-frames.js
 # build manifest, and the screenshot selector contract offline, before any
 # browser runs. A stale or absent web/build.json fails here; it never SKIPs.
 node scripts/verify-web.mjs
+node scripts/verify-web-state.js
 
 test -f ios/ZotApp.swift
 test -f ios/Keychain.swift

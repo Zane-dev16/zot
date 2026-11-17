@@ -6,7 +6,7 @@ import * as api from "./api.js";
 import { firstLine } from "./format.js";
 import { createRenderer } from "./render.js";
 import { createStream } from "./stream.js";
-import { createStore, initialState, selectCanFetch } from "./store.js";
+import { createStore, initialState, selectCanFetch, selectCursor, selectDetailQueue } from "./store.js";
 
 const TOKEN_KEY = "zot.token";
 const SINCE_KEY = "zot.since";
@@ -66,6 +66,8 @@ let healthTimer = null;
 let hintTimer = null;
 let stream = null;
 let rendering = false;
+let persistedCursor = "";
+const inflightDetails = new Set();
 
 /** @type {{route: Function, variant: Function, saveToken: Function, signOut: Function, refreshRuns: Function, send: Function, approve: Function, cancel: Function, select: Function, inspectorToggle: Function, inspectorTab: Function, goApprove: Function, retryNow: Function, filter: Function}} */
 const actions = {
@@ -109,6 +111,7 @@ const actions = {
 	signOut() {
 		writeStorage(TOKEN_KEY, "");
 		writeStorage(SINCE_KEY, "");
+		persistedCursor = "";
 		if (stream) stream.close();
 		store.dispatch({ type: "auth.signOut" });
 		store.dispatch({ type: "conn.set", status: "auth", attempt: 0 });
@@ -190,7 +193,42 @@ store.subscribe((state) => {
 	} finally {
 		rendering = false;
 	}
+	persistCursor(state);
+	drainDetailQueue();
 });
+
+/**
+ * Persist the replay cursor, but only a numeric seq ever gets stored: a
+ * heartbeat id ("hb-<ms>") must never become zot.since.
+ * @param {object} state
+ */
+function persistCursor(state) {
+	const cursor = selectCursor(state);
+	if (!cursor || cursor === persistedCursor) return;
+	persistedCursor = cursor;
+	writeStorage(SINCE_KEY, cursor);
+}
+
+/** Fill title/prompt for ids the stream named before REST did (one fetch each). */
+function drainDetailQueue() {
+	const state = getState();
+	if (!selectCanFetch(state)) return;
+	for (const id of selectDetailQueue(state)) {
+		if (inflightDetails.has(id)) continue;
+		inflightDetails.add(id);
+		store.dispatch({ type: "run.detailStart", id });
+		api.getRun(state.auth.token, id)
+			.then((run) => {
+				if (run) store.dispatch({ type: "run.detailOk", id, run });
+				else store.dispatch({ type: "run.detailErr", id });
+			})
+			.catch((err) => {
+				if (err && err.status === 401) rejectAuth("the daemon rejected that token");
+				store.dispatch({ type: "run.detailErr", id, error: (err && err.message) || "detail failed" });
+			})
+			.finally(() => inflightDetails.delete(id));
+	}
+}
 
 /**
  * @param {string} error
@@ -318,7 +356,7 @@ function connect() {
 	if (!stream) {
 		stream = createStream({
 			getToken: () => getState().auth.token,
-			getCursor: () => "",
+			getCursor: () => selectCursor(getState()),
 			onFrame: (frame) => store.dispatch({ type: "stream.frame", frame }),
 			onStatus: (status) => {
 				store.dispatch({
@@ -340,6 +378,15 @@ function boot() {
 	store.dispatch({ type: "ui.variant", variant: VARIANTS.includes(variant) ? variant : DEFAULT_VARIANT });
 	const token = readStorage(TOKEN_KEY).trim();
 	store.dispatch({ type: "auth.boot", token });
+	// Only a numeric cursor is a valid replay cursor. A legacy "hb-<ms>" value
+	// is dropped instead of being sent as `since`.
+	const storedCursor = readStorage(SINCE_KEY).trim();
+	if (/^\d+$/.test(storedCursor)) {
+		persistedCursor = storedCursor;
+		store.dispatch({ type: "stream.cursor", cursor: storedCursor });
+	} else if (storedCursor) {
+		writeStorage(SINCE_KEY, "");
+	}
 	const initialView = hashView() || (token ? "chat" : "pairing");
 	store.dispatch({ type: "ui.route", view: initialView });
 	loadBuild();
