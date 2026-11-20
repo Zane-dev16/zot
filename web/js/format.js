@@ -21,6 +21,20 @@ export function firstLine(value) {
 }
 
 /**
+ * Cap one line of text at `max` characters, ending it with an ellipsis when it
+ * was cut. Used where a row must stay one line tall (an approval's prompt).
+ * @param {unknown} value
+ * @param {number} max
+ * @returns {string}
+ */
+export function clip(value, max) {
+	const text = String(value == null ? "" : value);
+	const limit = Math.max(0, Math.floor(Number(max) || 0));
+	if (limit === 0 || text.length <= limit) return text;
+	return text.slice(0, limit - 1) + "\u2026";
+}
+
+/**
  * Short id for display (first 8 chars). Always labelled by format.titleOf.
  * @param {unknown} id
  * @returns {string}

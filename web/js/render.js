@@ -9,7 +9,7 @@ import { selectActivity, selectApprovals, selectChatRuns, selectPendingCount } f
 import { createActivityView } from "./views/activity.js";
 import { createApprovalsView } from "./views/approvals.js";
 import { createChatView } from "./views/chat.js";
-import { createInspectorView } from "./views/inspector.js";
+import { createInspectorView, viewSupportsSelection } from "./views/inspector.js";
 import { createPairingView } from "./views/pairing.js";
 import { applyVariantHook } from "./views/variants/index.js";
 
@@ -249,6 +249,9 @@ export function createRenderer(doc, actions) {
 			app.dataset.view = state.ui.view;
 			app.dataset.conn = state.conn.status;
 			app.dataset.variant = state.ui.variant;
+			// Inspector availability is a property of the active view, and the
+			// shell uses it to give the pane's column back (layout.css).
+			app.dataset.inspector = viewSupportsSelection(state.ui.view) ? "docked" : "hidden";
 		}
 		if (state.ui.variant !== lastVariant) {
 			lastVariant = state.ui.variant;

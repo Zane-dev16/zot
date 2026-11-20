@@ -80,6 +80,29 @@ export function keyed(container, items, keyOf, create, update) {
 }
 
 /**
+ * Mark a row that just changed run state so CSS can flash it once. A row's
+ * first fill (previous state empty) never flashes: that is hydration, not a
+ * transition. The attribute clears itself after the animation so a later
+ * change replays it. CSS owns the timing, and `prefers-reduced-motion` drops
+ * the animation entirely, which leaves this a no-op there.
+ * @param {{dataset?: Record<string, string>}|null} node
+ * @param {unknown} previous
+ * @param {unknown} next
+ */
+export function flashOnChange(node, previous, next) {
+	if (!node || !node.dataset) return;
+	const before = String(previous == null ? "" : previous);
+	const after = String(next == null ? "" : next);
+	if (!before || before === after) return;
+	node.dataset.flash = "true";
+	const timer = setTimeout(() => {
+		if (node.dataset) delete node.dataset.flash;
+	}, 700);
+	// Node's timer object would otherwise keep the offline test alive.
+	if (timer && typeof timer.unref === "function") timer.unref();
+}
+
+/**
  * Write a polite announcement into a live region, but only when it changes.
  * @param {Element|null} region
  * @param {string} message

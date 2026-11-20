@@ -275,6 +275,39 @@ async function main() {
 		pass("activity: the filter narrows the same list and all restores it");
 	}
 
+	// 15. The inspector is docked only where a run can be selected (M6).
+	//     Pairing has no selectable row, so the pane gives its 380px back; the
+	//     renderer publishes that as #app[data-inspector] and the pane's hidden.
+	{
+		const insp = await import(pathToFileURL(path.join(WEB_JS, "views", "inspector.js")).href);
+		assert.equal(insp.viewSupportsSelection("pairing"), false);
+		assert.equal(insp.viewSupportsSelection("chat"), true);
+		assert.equal(insp.viewSupportsSelection("approvals"), true);
+		assert.equal(insp.viewSupportsSelection("activity"), true);
+		assert.equal(insp.viewSupportsSelection(""), false);
+		assert.equal(insp.viewSupportsSelection(undefined), false);
+		pass("inspector: only the three run surfaces can dock it");
+	}
+
+	// 16. The approvals row shows the prompt line, one line, clipped.
+	{
+		const dom = await import(pathToFileURL(path.join(WEB_JS, "dom.js")).href);
+		assert.equal(format.firstLine("tool: shell echo hi\nmore"), "tool: shell echo hi");
+		assert.equal(format.firstLine("\n  \n"), "");
+		assert.equal(format.clip("tool: shell echo hi", 160), "tool: shell echo hi");
+		assert.equal(format.clip("abcdef", 4), "abc\u2026");
+		assert.equal(format.clip("abcdef", 0), "abcdef");
+		// A first fill never flashes; a real transition does, once.
+		const node = { dataset: {} };
+		dom.flashOnChange(node, "", "queued");
+		assert.equal(node.dataset.flash, undefined);
+		dom.flashOnChange(node, "queued", "running");
+		assert.equal(node.dataset.flash, "true");
+		dom.flashOnChange(node, "running", "running");
+		assert.equal(node.dataset.flash, "true");
+		pass("approvals: prompt line is the first line, clipped; rows flash on change");
+	}
+
 	console.log("PASS web state (" + passed + " checks)");
 }
 

@@ -7,6 +7,8 @@
 //      manifest can pass silently; a missing one fails, never SKIPs)
 //   4. the screenshot selector contract is present in the sources
 //   5. web/** loads no external asset
+//   6. the console layout contract: a 13ch state column on both list surfaces,
+//      and a state flash that prefers-reduced-motion switches off
 //
 // Usage: node scripts/verify-web.mjs
 // Exit: 0 all checks pass, 1 any check fails (each failure names its file).
@@ -55,6 +57,7 @@ const SELECTOR_CONTRACT = [
 	"#send",
 	"#composerHint",
 	".runTitle",
+	".runHead",
 	".runBadge",
 	".runMeta",
 	".runTokens",
@@ -62,6 +65,7 @@ const SELECTOR_CONTRACT = [
 	".runNeedsApproval",
 	".inspectorOpen",
 	".approvalRow",
+	".approvalPrompt",
 	'data-action="approve"',
 	'data-action="cancel"',
 	"#approvals",
@@ -75,6 +79,7 @@ const SELECTOR_CONTRACT = [
 	"#activityError",
 	"#refreshActivity",
 	".activityRun",
+	".activityState",
 	"#auth",
 	"#token",
 	"#saveToken",
@@ -98,6 +103,8 @@ const SELECTOR_CONTRACT = [
 	"#inspectorGoApprove",
 	".toolEvent",
 	"#live",
+	"data-flash",
+	"data-inspector",
 	"Device token",
 	"Show tool events for",
 ];
@@ -207,6 +214,27 @@ for (const file of scan.files) {
 	}
 }
 
+// 6. M6 console contract ----------------------------------------------------
+// The state gutter is a fixed 13ch on both list surfaces, and the state flash
+// is the one motion cue, so reduced-motion users must be able to switch it off
+// in CSS. Both live in components.css (the console base); tty restates the
+// columns, but a missing base rule would otherwise hide behind it. The browser
+// harness measures the geometry; catching a dropped declaration here names the
+// file before a browser starts.
+const components = scan.files.find((file) => file.rel === "css/components.css");
+const componentsCss = components ? components.text : "";
+if (!componentsCss) fail("css/components.css is missing; the console base styling has nowhere to live");
+if (!componentsCss.includes("grid-template-columns: 13ch minmax(0, 1fr) auto auto")) {
+	fail("css/components.css: run headers lost their 13ch state column (grid-template-columns: 13ch minmax(0, 1fr) auto auto)");
+}
+if (!/flex:\s*0 0 13ch/.test(componentsCss)) {
+	fail("css/components.css: activity rows lost their fixed state column (flex: 0 0 13ch)");
+}
+const reducedBlock = (componentsCss.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/) || [""])[0];
+if (!/\[data-flash="true"\]/.test(reducedBlock) || !/animation:\s*none/.test(reducedBlock)) {
+	fail('css/components.css: [data-flash="true"] is not switched off under prefers-reduced-motion');
+}
+
 // Report --------------------------------------------------------------------
 if (failures.length > 0) {
 	for (const message of failures) console.error("FAIL " + message);
@@ -216,5 +244,6 @@ console.log(`PASS web modules parse (${graph.modules.length} ES modules)`);
 console.log(`PASS web import graph (${graph.reachable.length} modules reachable from ${ENTRY_REL})`);
 console.log(`PASS web build manifest fresh (sourceHash ${computeSourceHash(scan).slice(0, 12)})`);
 console.log(`PASS web selector contract (${SELECTOR_CONTRACT.length} handles)`);
+console.log("PASS web state column + reduced-motion flash contract");
 console.log(`PASS web no external assets (${scan.files.length} files scanned)`);
 console.log("PASS web gate");

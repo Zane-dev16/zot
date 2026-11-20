@@ -5,6 +5,21 @@
 import { relTime, shortId, stateLabel, titleOf } from "../format.js";
 import { APPROVABLE_STATES, selectRun } from "../store.js";
 
+// Views whose rows can be selected. Pairing has nothing to select, so the pane
+// is not laid out there at all: the shell gives its column back (see
+// layout.css `#app[data-inspector="hidden"]`) instead of spending 380px on
+// "select a run". Chat, Approvals, and Activity restore it.
+const SELECTABLE_VIEWS = new Set(["chat", "approvals", "activity"]);
+
+/**
+ * Whether the active view has anything an operator can select.
+ * @param {unknown} view
+ * @returns {boolean}
+ */
+export function viewSupportsSelection(view) {
+	return SELECTABLE_VIEWS.has(String(view == null ? "" : view));
+}
+
 /**
  * @param {Document} doc
  * @param {{inspectorToggle: (open: boolean) => void, inspectorTab: (tab: string) => void, goApprove: (id: string) => void, loadEvents: (id: string) => void}} actions
@@ -169,6 +184,7 @@ export function createInspectorView(doc, actions) {
 		update(state, now) {
 			if (!inspector) return;
 			const run = selectRun(state, state.ui.selectedRunId);
+			inspector.hidden = !viewSupportsSelection(state.ui.view);
 			inspector.dataset.collapsed = state.ui.inspectorOpen ? "false" : "true";
 			if (title) title.textContent = run ? titleOf(run) : "Inspector";
 			if (tabs) {

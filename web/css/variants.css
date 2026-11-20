@@ -313,13 +313,6 @@
 	white-space: nowrap;
 }
 
-/* The columns already separate the facts; the console's inline · would land in
-   the wrong place once the visual order differs from the DOM order. */
-#app[data-variant="ledger"] button.activityRun > span + span::before,
-#app[data-variant="tty"] button.activityRun > span + span::before {
-	content: none;
-}
-
 #app[data-variant="ledger"] .activityRun .activityTitle {
 	grid-column: 1;
 }
@@ -429,6 +422,12 @@
 	grid-row: 3;
 	padding: 10px 12px;
 	border-right: 1px solid var(--line);
+}
+
+/* Pairing has nothing to select: one pane, not two equal ones with a dead
+   "select a run" half. */
+#app[data-variant="tty"][data-inspector="hidden"] {
+	grid-template-columns: minmax(0, 1fr);
 }
 
 #app[data-variant="tty"] #inspector {

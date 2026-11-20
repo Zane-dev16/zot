@@ -243,8 +243,13 @@ select {
 	grid-column: 2;
 }
 
+/* Fixed state column: the state word owns 13ch, so a run title starts at the
+   same x on every row (done is 4ch, waiting_tool is 12ch). The column is
+   first; DOM order stays title-first for screen readers, and variants re-place
+   these same four children with their own grid rules. */
 .runHead {
-	display: flex;
+	display: grid;
+	grid-template-columns: 13ch minmax(0, 1fr) auto auto;
 	align-items: baseline;
 	gap: var(--gap);
 	min-width: 0;
@@ -263,8 +268,8 @@ select {
 	font-family: var(--mono);
 	font-size: var(--fs-xs);
 	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	padding: 1px 6px;
+	letter-spacing: 0.02em;
+	padding: 1px 4px;
 	border: 1px solid currentColor;
 	border-radius: 999px;
 	white-space: nowrap;
@@ -295,6 +300,22 @@ select {
 	font-size: var(--fs-xs);
 	color: var(--muted);
 	white-space: nowrap;
+}
+
+.runHead .runBadge {
+	grid-column: 1;
+	grid-row: 1;
+	justify-self: start;
+}
+
+.runHead .runTitle {
+	grid-column: 2;
+	grid-row: 1;
+}
+
+.runHead .runMeta {
+	grid-column: 3;
+	grid-row: 1;
 }
 
 .runTokens {
@@ -400,6 +421,20 @@ select {
 	font-family: var(--mono);
 }
 
+/* What the operator is approving: the run's own prompt, one line, mono. It sits
+   above the buttons because the prompt is the thing being said yes to. */
+.approvalPrompt {
+	margin: 2px 0 0;
+	padding-left: 6px;
+	border-left: 2px solid var(--line-strong);
+	font-family: var(--mono);
+	font-size: var(--fs-xs);
+	color: var(--text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .approvalNote[data-kind="error"] {
 	color: var(--state-failed);
 }
@@ -446,6 +481,7 @@ button.activityRun {
 	justify-content: flex-start;
 	display: flex;
 	align-items: center;
+	gap: 8px;
 	height: var(--row);
 	padding: 0 10px;
 	border: 0;
@@ -466,8 +502,9 @@ button.activityRun:hover {
 	background: var(--panel-2);
 }
 
-/* The row's four facts are spans so variants can give them fixed columns.
-   Console keeps the original single-line ledger string via inline separators. */
+/* The row's four facts are spans so every layout can give them fixed columns.
+   Console places them with the state gutter and normal flow; ledger and tty
+   re-place the same four spans on their own grids. */
 button.activityRun > span {
 	min-width: 0;
 	overflow: hidden;
@@ -475,13 +512,17 @@ button.activityRun > span {
 	white-space: nowrap;
 }
 
-button.activityRun > span:empty {
-	display: none;
+/* The same fixed 13ch state column as a run header: the state word is the only
+   fact whose width changes, so it gets the column and titles stop drifting. */
+button.activityRun > .activityState {
+	flex: 0 0 13ch;
+	font-family: var(--mono);
+	font-size: var(--fs-xs);
+	letter-spacing: 0.02em;
 }
 
-button.activityRun > span + span::before {
-	content: " · ";
-	color: var(--muted);
+button.activityRun > span:empty {
+	display: none;
 }
 
 /* --- pairing card ------------------------------------------------------- */
@@ -692,9 +733,35 @@ button.activityRun > span + span::before {
 .runHead .inspectorOpen {
 	margin-left: auto;
 	flex: 0 0 auto;
+	grid-row: 1;
+	justify-self: end;
 }
 
 #inspectorBody[data-state="loading"],
 #inspectorBody[data-state="error"] {
 	color: var(--muted);
+}
+
+/* --- state change flash ------------------------------------------------- */
+/* A row that changed run state is washed once, then settles. The wash is an
+   inset shadow so it reads the same over a console panel, a ledger hairline, or
+   a tty rule. Reduced motion removes the flash (and tokens.css already zeroes
+   transition durations), so the cue is never motion. */
+@keyframes stateFlash {
+	from {
+		box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--accent) 18%, transparent);
+	}
+	to {
+		box-shadow: inset 0 0 0 999px transparent;
+	}
+}
+
+[data-flash="true"] {
+	animation: stateFlash 600ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-flash="true"] {
+		animation: none;
+	}
 }

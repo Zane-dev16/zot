@@ -7,7 +7,7 @@
 // the ledger. Keyboard: Up/Down/Home/End walk the rows, Left/Right walk the
 // filter chips.
 
-import { h, keyed } from "../dom.js";
+import { flashOnChange, h, keyed } from "../dom.js";
 import { relTime, shortId, stateLabel, titleOf } from "../format.js";
 import { selectActivity } from "../store.js";
 
@@ -129,7 +129,9 @@ export function createActivityView(doc, actions) {
 	 * @param {number} now
 	 */
 	function updateRow(node, run, now) {
+		const previous = node.dataset.state;
 		node.dataset.state = run.state || "";
+		flashOnChange(node, previous, run.state);
 		const button = node.querySelector("button.activityRun");
 		if (!button) return;
 		button.setAttribute("aria-label", "Show tool events for " + titleOf(run));

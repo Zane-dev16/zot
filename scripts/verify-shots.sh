@@ -28,6 +28,12 @@
 #   bash scripts/verify-shots.sh [evidence-dir]
 #   EVIDENCE_DIR=/path bash scripts/verify-shots.sh
 #
+# M6 also measures the console layout contract on the way through: Pairing must
+# give the inspector's 380px column back (and Chat restore it), Chat and Activity
+# must keep one fixed 13ch state column across done/waiting_tool rows, an
+# approvals row must show the run's prompt above its buttons, and the state
+# flash must animate normally and disappear under emulated reduced motion.
+#
 # Variant matrix (M5): the same seven screens, once per layout. The gate runs
 # the default console variant only; the matrix is produced on demand:
 #   bash scripts/verify-shots.sh /tmp/zot-shots-console
@@ -440,6 +446,26 @@ assert_true "pairing view is active" '(() => {
 	const start = document.querySelector("#pairStart");
 	return Boolean(view && view.hasAttribute("data-active") && start && start.offsetWidth > 0);
 })()'
+# M6: pairing has nothing selectable, so the pane must not sit on 380px of
+# "select a run". The inspector hides, #app[data-inspector="hidden"] gives the
+# column back, and Main reaches the app edge in every variant.
+assert_true "pairing gives the inspector column back" '(() => {
+	const app = document.querySelector("#app");
+	const pane = document.querySelector("#inspector");
+	const main = document.querySelector("#main");
+	if (!app || !pane || !main) return false;
+	const paneBox = pane.getBoundingClientRect();
+	const mainBox = main.getBoundingClientRect();
+	const appBox = app.getBoundingClientRect();
+	return Boolean(
+		document.querySelector("#view-pairing[data-active]") &&
+		app.dataset.inspector === "hidden" &&
+		pane.hidden &&
+		paneBox.width === 0 &&
+		mainBox.width > 0 &&
+		Math.abs(mainBox.right - appBox.right) <= 2
+	);
+})()'
 capture pairing
 
 storage_value() {
@@ -524,6 +550,11 @@ assert_true "token accepted and stream live" '(() => {
 
 CHAT_RUN="$(create_run "hello verify" "hello verify")" || fail "could not create chat run"
 wait_run_state "$CHAT_RUN" "done"
+# M6: a second run in a different state makes the fixed state column
+# measurable in one screenshot (done is 4ch, waiting_tool is 12ch).
+TOOL_RUN="$(create_run "tool approval" "tool: shell echo hi")" || fail "could not create tool run"
+wait_run_state "$TOOL_RUN" "waiting_tool"
+ab eval "window.__zotToolRun = '${TOOL_RUN}'" >/dev/null
 wait_true "chat completion rendered" 'document.querySelector("#log").textContent.includes("echo[echo]: hello verify")'
 assert_true "chat run is done in #log" '(() => {
 	const block = [...document.querySelectorAll("#log article")].find((a) => a.textContent.includes("echo[echo]: hello verify"));
@@ -532,6 +563,35 @@ assert_true "chat run is done in #log" '(() => {
 assert_true "chat view is active" '(() => {
 	const view = document.querySelector("#view-chat");
 	return Boolean(view && view.hasAttribute("data-active"));
+})()'
+# M6: the state word owns a fixed 13ch column, so titles cannot drift between
+# done and waiting_tool. Ledger right-aligns its state word, so only title
+# alignment is required there; console and tty also share the state column.
+assert_true "chat run headers share one fixed state column" '(() => {
+	const rows = [...document.querySelectorAll("#log article")];
+	if (rows.length < 2) return false;
+	const states = new Set(rows.map((row) => row.dataset.state));
+	const titles = rows.map((row) => row.querySelector(".runTitle").getBoundingClientRect().left);
+	const badges = rows.map((row) => row.querySelector(".runBadge").getBoundingClientRect());
+	const titleSpread = Math.max(...titles) - Math.min(...titles);
+	const badgeLeftSpread = Math.max(...badges.map((b) => b.left)) - Math.min(...badges.map((b) => b.left));
+	const fixedState = window.__zotVariant !== "ledger";
+	return Boolean(
+		states.has("done") && states.has("waiting_tool") &&
+		titleSpread <= 0.5 &&
+		(!fixedState || badgeLeftSpread <= 0.5)
+	);
+})()'
+assert_true "chat docks the inspector again" '(() => {
+	const pane = document.querySelector("#inspector");
+	const app = document.querySelector("#app");
+	if (!pane || !app) return false;
+	const width = pane.getBoundingClientRect().width;
+	return Boolean(
+		app.dataset.inspector === "docked" &&
+		!pane.hidden &&
+		(window.__zotVariant === "ledger" || width > 0)
+	);
 })()'
 capture chat
 
@@ -572,11 +632,10 @@ assert_true "#live never carries token text" '(() => {
 # --- approvals screen -----------------------------------------------------
 # Approvals are their own view: Chat and the Inspector never perform a run
 # transition (ADR-3), so the row lives in #view-approvals and the harness has to
-# navigate there before asserting. The run id is exported onto window so the
-# selector can interpolate it without shell-quoting a template literal.
-TOOL_RUN="$(create_run "tool approval" "tool: shell echo hi")" || fail "could not create tool run"
-wait_run_state "$TOOL_RUN" "waiting_tool"
-ab eval "window.__zotToolRun = '${TOOL_RUN}'" >/dev/null
+# navigate there before asserting. The tool run was created before the chat
+# screen so the fixed state column had two states to compare; its id rides on
+# window so the selectors can interpolate it without shell-quoting a template
+# literal.
 
 # Keyboard route: arrows move focus inside the sidebar, Enter follows the route
 # and focus lands on #viewTitle (focus-follows-route).
@@ -610,6 +669,32 @@ assert_true "approval row has Approve and Cancel" '(() => {
 	const buttons = [...row.querySelectorAll("button")].map((b) => b.textContent.trim());
 	return buttons.some((t) => t.startsWith("Approve")) && buttons.includes("Cancel");
 })()'
+# M6: what is being approved is the run's prompt line, shown above the buttons in
+# mono and truncated to one line. The API carries no tool args, so the line is
+# the prompt and nothing else.
+wait_true "approval prompt line arrived" '(() => {
+	const line = document.querySelector(`#approvals [data-run-id="${window.__zotToolRun}"] .approvalPrompt`);
+	return Boolean(line && !line.hidden && line.textContent.includes("tool: shell echo hi"));
+})()'
+assert_true "approval row shows the run prompt above its buttons" '(() => {
+	const item = document.querySelector(`#approvals [data-run-id="${window.__zotToolRun}"]`);
+	if (!item) return false;
+	const line = item.querySelector(".approvalPrompt");
+	const row = item.querySelector(".approvalRow");
+	if (!line || !row || line.hidden) return false;
+	const lineBox = line.getBoundingClientRect();
+	const rowBox = row.getBoundingClientRect();
+	const style = getComputedStyle(line);
+	const itemBox = item.getBoundingClientRect();
+	return Boolean(
+		line.textContent.trim() === "tool: shell echo hi" &&
+		lineBox.height > 0 &&
+		lineBox.bottom <= rowBox.top + 1 &&
+		/mono/i.test(style.fontFamily) &&
+		style.whiteSpace === "nowrap" &&
+		lineBox.right <= itemBox.right + 0.5
+	);
+})()'
 capture approvals
 
 # --- activity screen ------------------------------------------------------
@@ -639,6 +724,25 @@ assert_true "18 activity rows fit above 760px" '(() => {
 	const first = rows[0].getBoundingClientRect();
 	const eighteenth = rows[17].getBoundingClientRect();
 	return first.height > 0 && eighteenth.bottom - first.top < 760;
+})()'
+# M6: the same fixed state column on the ledger. Console and tty hold the state
+# word and the title in identical boxes on every row; ledger right-aligns its
+# state word, so there the title column alone must hold still.
+assert_true "activity rows share one fixed state column" '(() => {
+	const rows = [...document.querySelectorAll("#activity li[data-state]")];
+	if (rows.length < 2) return false;
+	const states = new Set(rows.map((row) => row.dataset.state));
+	const titles = rows.map((row) => row.querySelector(".activityTitle").getBoundingClientRect().left);
+	const stateBoxes = rows.map((row) => row.querySelector(".activityState").getBoundingClientRect());
+	const titleSpread = Math.max(...titles) - Math.min(...titles);
+	const stateLeftSpread = Math.max(...stateBoxes.map((b) => b.left)) - Math.min(...stateBoxes.map((b) => b.left));
+	const stateWidthSpread = Math.max(...stateBoxes.map((b) => b.width)) - Math.min(...stateBoxes.map((b) => b.width));
+	const fixedState = window.__zotVariant !== "ledger";
+	return Boolean(
+		states.has("done") && states.has("waiting_tool") &&
+		titleSpread <= 0.5 &&
+		(!fixedState || (stateLeftSpread <= 0.5 && stateWidthSpread <= 0.5))
+	);
 })()'
 # Empty state: a filter with no matches names itself and leaves the list empty.
 ab click '#activityFilter [data-filter="failed"]' >/dev/null
@@ -683,6 +787,39 @@ wait_true "escape closes the inspector and restores focus" '(() => {
 		active && active.classList.contains("activityRun") &&
 		active.closest("li").dataset.runId === window.__zotToolRun
 	);
+})()'
+
+# --- state flash + reduced motion (M6) ------------------------------------
+# A row that changed state carries [data-flash] and the shipped keyframes; the
+# attribute check proves the stylesheet is wired, and emulated reduced motion
+# proves the opt-out removes the animation instead of trusting a comment.
+assert_true "a state change flashes the row" '(() => {
+	const row = document.querySelector("#activity li[data-state]");
+	if (!row) return false;
+	row.dataset.flash = "true";
+	const style = getComputedStyle(row);
+	const hasRule = [...document.styleSheets].some((sheet) => {
+		let rules;
+		try {
+			rules = [...sheet.cssRules];
+		} catch {
+			return false;
+		}
+		return rules.some((rule) => Boolean(
+			rule.media &&
+			rule.conditionText.includes("prefers-reduced-motion") &&
+			[...rule.cssRules].some((inner) => /\[data-flash/.test(inner.selectorText || "") && inner.style && inner.style.animationName === "none")
+		));
+	});
+	return style.animationName === "stateFlash" && hasRule;
+})()'
+ab set media dark reduced-motion >/dev/null
+assert_true "reduced motion removes the flash" '(() => {
+	const row = document.querySelector("#activity li[data-state]");
+	if (!row) return false;
+	row.dataset.flash = "true";
+	const style = getComputedStyle(row);
+	return style.animationName === "none" && parseFloat(style.animationDuration) <= 0.002;
 })()'
 
 if [ "$PAIR_VIA" = "ui" ]; then

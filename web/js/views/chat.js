@@ -2,7 +2,7 @@
 // Chat is read-only about run transitions (ADR-3): an approvable run shows a
 // `.runNeedsApproval` link into the Approvals view, never its own buttons.
 
-import { h, keyed } from "../dom.js";
+import { flashOnChange, h, keyed } from "../dom.js";
 import { relTime, shortId, stateLabel, titleOf } from "../format.js";
 import { APPROVABLE_STATES, selectChatRuns } from "../store.js";
 
@@ -87,7 +87,9 @@ export function createChatView(doc, actions) {
 	 * @param {number} now
 	 */
 	function updateArticle(node, run, now) {
+		const previous = node.dataset.state;
 		node.dataset.state = run.state || "";
+		flashOnChange(node, previous, run.state);
 		const title = node.querySelector(".runTitle");
 		const badge = node.querySelector(".runBadge");
 		const meta = node.querySelector(".runMeta");

@@ -3,8 +3,8 @@
 // (approve → running, cancel → cancelled) and `queued` (approve → running),
 // most recently updated first so blocking work sorts itself to the top.
 
-import { h, keyed } from "../dom.js";
-import { relTime, shortId, stateLabel, titleOf } from "../format.js";
+import { flashOnChange, h, keyed } from "../dom.js";
+import { clip, firstLine, relTime, shortId, stateLabel, titleOf } from "../format.js";
 import { selectApprovals } from "../store.js";
 
 /**
@@ -82,6 +82,7 @@ export function createApprovalsView(doc, actions) {
 				h("span", { class: "runBadge" }),
 				h("span", { class: "runMeta" }),
 			),
+			h("p", { class: "approvalPrompt", hidden: true }),
 			h("p", { class: "approvalNote" }),
 			h("div", { class: "approvalRow" }, approve, cancel, details),
 		);
@@ -96,10 +97,13 @@ export function createApprovalsView(doc, actions) {
 	function updateRow(node, run, state, now) {
 		const busy = Boolean(state.approvals.pending[run.id]);
 		const failure = state.approvals.error[run.id] || "";
+		const previous = node.dataset.state;
 		node.dataset.state = run.state || "";
+		flashOnChange(node, previous, run.state);
 		const title = node.querySelector(".runTitle");
 		const badge = node.querySelector(".runBadge");
 		const meta = node.querySelector(".runMeta");
+		const prompt = node.querySelector(".approvalPrompt");
 		const note = node.querySelector(".approvalNote");
 		const approve = node.querySelector('[data-action="approve"]');
 		const cancel = node.querySelector('[data-action="cancel"]');
@@ -111,6 +115,13 @@ export function createApprovalsView(doc, actions) {
 		if (meta) {
 			const updated = relTime(run.updatedAt, now);
 			meta.textContent = shortId(run.id) + (updated ? " · updated " + updated : "");
+		}
+		// The line the operator is approving: the run's own prompt, never the
+		// tool's arguments (the API carries no args field). Empty prompts omit it.
+		if (prompt) {
+			const line = firstLine(run.prompt);
+			prompt.hidden = line === "";
+			prompt.textContent = clip(line, 160);
 		}
 		if (note) {
 			const parts = [];

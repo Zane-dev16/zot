@@ -149,6 +149,13 @@
 	flex: 0 0 auto;
 }
 
+/* The inspector is only laid out on views that can select a run. Pairing has
+   nothing to select, so #app[data-inspector="hidden"] gives the pane's column
+   back to #main; its zero width collapses the track at every breakpoint. */
+#app[data-inspector="hidden"] {
+	--inspector-w: 0px;
+}
+
 #inspector {
 	grid-column: 3;
 	grid-row: 2;
