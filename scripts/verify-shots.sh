@@ -14,8 +14,13 @@
 #   activity.png          the Activity view: #activity populated with titled run rows
 #   inspector.png         selecting an Activity row opens its tool events
 #
-# Views navigate through #navChat/#navApprovals/#navActivity/#navPairing; each
-# screen asserts its own `data-active` before capturing.
+# Two screens are reached through their sidebar handles: Approvals through the
+# keyboard route (#navChat focus, ArrowDown, Enter) and Activity by clicking
+# `#navActivity`; both assert their own `data-active` before capturing. Pairing
+# opens on #/pairing directly — the harness never clicks #navPairing — and Chat
+# is where #saveToken routes the page. The pairing sub-screens assert
+# #pairStatus[data-kind] (code, then paired) and the inspector screen asserts
+# #inspectorTitle plus a .toolEvent, not data-active.
 #
 # Viewport is fixed at 1280x800 so screenshots compare before/after a UI change.
 #
@@ -241,19 +246,37 @@ ui | api) ;;
 esac
 TOKEN=""
 
+# One pairing POST, with the daemon's 429 named for what it is. The rate limit is
+# 5 POSTs per 60 s and its body is {"error":"rate limited"}; a generic "pairing
+# failed" hides the only cause an operator can act on.
+pair_post() {
+	local path="$1" body="$2" out status detail
+	out="$(mktemp "$TMP/pair-post.XXXXXX")"
+	status="$(curl -sS -o "$out" -w '%{http_code}' -X POST "${BASE}${path}" \
+		-H 'content-type: application/json' \
+		-d "$body")" || fail "pair request to ${path} failed"
+	if [ "$status" = "429" ]; then
+		rm -f "$out"
+		fail "${path}: the daemon rate limited pairing (429: 5 pairing POSTs per 60 s). Wait a minute, then re-run."
+	fi
+	if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+		detail="$(cat "$out" 2>/dev/null || true)"
+		rm -f "$out"
+		fail "${path} answered ${status}: ${detail:-no body}"
+	fi
+	cat "$out"
+	rm -f "$out"
+}
+
 pair_via_api() {
 	local pair_start CODE pair_confirm
-	pair_start="$(curl -sS -X POST "${BASE}/api/v1/pair/start" \
-		-H 'content-type: application/json' \
-		-d '{"label":"verify-shots","kind":"browser"}')" || fail "pair/start request failed"
+	pair_start="$(pair_post /api/v1/pair/start '{"label":"verify-shots","kind":"browser"}')" || fail "pair/start request failed"
 	CODE="$(printf '%s' "$pair_start" | node -e '
 		const o = JSON.parse(require("fs").readFileSync(0, "utf8"));
 		if (!o || !o.code) process.exit(1);
 		process.stdout.write(String(o.code));
 	')" || fail "pair/start did not return a code: $pair_start"
-	pair_confirm="$(curl -sS -X POST "${BASE}/api/v1/pair/confirm" \
-		-H 'content-type: application/json' \
-		-d "{\"code\":\"${CODE}\"}")" || fail "pair/confirm request failed"
+	pair_confirm="$(pair_post /api/v1/pair/confirm "{\"code\":\"${CODE}\"}")" || fail "pair/confirm request failed"
 	TOKEN="$(printf '%s' "$pair_confirm" | node -e '
 		const o = JSON.parse(require("fs").readFileSync(0, "utf8"));
 		if (!o || !o.token) process.exit(1);
@@ -304,6 +327,41 @@ wait_true() {
 	if ! ab wait --fn "$js" >/dev/null 2>"$TMP/wait.err"; then
 		fail "$desc: timed out waiting for ${js}"
 	fi
+}
+
+# Wait for #pairStatus[data-kind] to reach one wanted kind. A 429 from the
+# daemon (5 pairing POSTs per 60 s) shows up as data-kind=rate-limited, so name
+# the rate limit and the wait instead of reporting a generic pairing failure.
+pair_kind() {
+	local raw
+	if ! raw="$(ab eval --json 'document.querySelector("#pairStatus").getAttribute("data-kind")' 2>"$TMP/eval.err")"; then
+		fail "could not read #pairStatus: $(cat "$TMP/eval.err")"
+	fi
+	printf '%s' "$raw" | node -e '
+		const o = JSON.parse(require("fs").readFileSync(0, "utf8"));
+		if (!o.success) {
+			console.error(o.error || "eval failed");
+			process.exit(1);
+		}
+		const r = o.data ? o.data.result : null;
+		process.stdout.write(r == null ? "" : String(r));
+	' || fail "#pairStatus[data-kind] was not readable as a string"
+}
+
+wait_pair_kind() {
+	local desc="$1" want="$2" kind="" i=0
+	while [ "$i" -lt 75 ]; do
+		kind="$(pair_kind)"
+		case "$kind" in
+		"$want") return 0 ;;
+		rate-limited)
+			fail "${desc}: the daemon rate limited pairing (429: 5 pairing POSTs per 60 s). Wait a minute, then re-run."
+			;;
+		esac
+		sleep 0.2
+		i=$((i + 1))
+	done
+	fail "${desc}: #pairStatus stayed on ${kind:-unknown}, wanted ${want}"
 }
 
 capture() {
@@ -425,6 +483,30 @@ assert_true "variant switch flips the layout at runtime" '(() => {
 		localStorage.getItem("zot.variant") === start
 	);
 })()'
+
+# Topbar machine facts (plan §4.7): #daemon is the healthz poll and #build is the
+# committed manifest the gate re-derives. A fresh manifest must read as fresh, with
+# the same id this tree carries, so a browser served a stale manifest fails here.
+BUILD_HASH="$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync("web/build.json", "utf8")).sourceHash)')" || fail "could not read web/build.json"
+[ -n "$BUILD_HASH" ] || fail "web/build.json carries no sourceHash"
+ab eval "window.__zotBuildHash = '${BUILD_HASH}'" >/dev/null
+wait_true "daemon health fact rendered" 'document.querySelector("#daemon").getAttribute("data-kind") === "ready"'
+wait_true "build fact rendered" 'document.querySelector("#build").getAttribute("data-kind") === "fresh"'
+assert_true "#daemon names the daemon version and uptime" '(() => {
+	const daemon = document.querySelector("#daemon");
+	return Boolean(
+		daemon.dataset.kind === "ready" &&
+		/^ready · v\d+\.\d+\.\d+(?: · \d+[smh])?$/.test(daemon.textContent)
+	);
+})()'
+assert_true "#build carries the committed manifest id" '(() => {
+	const build = document.querySelector("#build");
+	return Boolean(
+		build.dataset.kind === "fresh" &&
+		build.textContent === "build " + window.__zotBuildHash.slice(0, 7)
+	);
+})()'
+
 assert_true "pairing surface is initial state" '(() => {
 	const auth = document.querySelector("#auth");
 	const token = document.querySelector("#auth #token");
@@ -487,7 +569,8 @@ storage_value() {
 if [ "$PAIR_VIA" = "ui" ]; then
 	# --- pairing-code screen ---------------------------------------------
 	ab click "#pairStart" >/dev/null
-	wait_true "pairing code issued" '/^\d{6}$/.test(document.querySelector("#pairCode").textContent) && document.querySelector("#pairStatus").getAttribute("data-kind") === "code"'
+	wait_pair_kind "pairing code issued" code
+	wait_true "pairing code rendered" '/^\d{6}$/.test(document.querySelector("#pairCode").textContent)'
 	assert_true "pairing code is six digits with a countdown" '(() => {
 		const code = document.querySelector("#pairCode");
 		const expiry = document.querySelector("#pairExpiry");
@@ -505,7 +588,7 @@ if [ "$PAIR_VIA" = "ui" ]; then
 
 	# --- pairing-confirmed screen ----------------------------------------
 	ab click "#pairConfirm" >/dev/null
-	wait_true "pairing confirmed" 'document.querySelector("#pairStatus").getAttribute("data-kind") === "paired"'
+	wait_pair_kind "pairing confirmed" paired
 	assert_true "paired state saved the token out of the URL" '(() => {
 		const kind = document.querySelector("#pairStatus").getAttribute("data-kind");
 		const summary = document.querySelector("#deviceSummary").textContent;

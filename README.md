@@ -23,7 +23,7 @@ Two iOS clients are in tree.
 
 The React Native app is device-unverified. No iOS build, simulator install, or on-device check has run for it. This host is Linux headless, with no Xcode, no simulator, and no iPhone. What runs here is jest, typecheck, lint, the stream frame regression check, and live tracer runs against a real daemon. Open human gates are listed in `BLOCKED.md`.
 
-`bash scripts/prove.sh` is the repo gate. It boots an isolated daemon, checks auth, and runs `node scripts/verify-stream-frames.js` (WebSocket framing), `node scripts/verify-web.mjs` (ES module graph, committed `web/build.json` freshness, screenshot selector contract, the 13ch state column and reduced-motion flash rules, no external assets), and `node scripts/verify-web-state.js` (the client reducer and its selectors). It also runs prettier, tsc, jest, and eslint from `rn/` when `rn/node_modules` exists, and prints `SKIP rn checks (installed deps absent)` when the install is missing, so a green gate never hides an unrun client check. The last stage drives the console in a real browser through `scripts/verify-shots.sh` for the seven screens (pairing, pairing code, pairing confirmed, chat, approvals, activity, inspector) at 1280x800; a resolved browser with a failed assertion fails the gate, and a host with no browser prints `SKIP browser screenshots (no browser resolved; set ZOT_BROWSER and ZOT_CHROME)` instead of claiming a pass.
+`bash scripts/prove.sh` is the repo gate. It boots an isolated daemon, checks auth, and runs `node scripts/verify-stream-frames.js` (WebSocket framing), `node scripts/verify-web.mjs` (ES module graph, committed `web/build.json` freshness, screenshot selector contract, the 13ch state column and reduced-motion flash rules, no external assets), and `node scripts/verify-web-state.js` (the client reducer and its selectors). It then asserts the four legacy `ios/` Swift files still exist (`PASS ios files exist`), a check that moves or disappears in the same commit that archives `ios/`. It also runs prettier, tsc, jest, and eslint from `rn/` when `rn/node_modules` exists, and prints `SKIP rn checks (installed deps absent)` when the install is missing, so a green gate never hides an unrun client check. The last stage drives the console in a real browser through `scripts/verify-shots.sh` for the seven screens (pairing, pairing code, pairing confirmed, chat, approvals, activity, inspector) at 1280x800; a resolved browser with a failed assertion fails the gate, and a host with no browser prints `SKIP browser screenshots (no browser resolved; set ZOT_BROWSER and ZOT_CHROME)` instead of claiming a pass.
 
 Commands that work on this host.
 
@@ -54,13 +54,14 @@ Start here.
 2. Open `http://localhost:8787/` for the browser chat.
 3. Read `docs/API.md` for routes and run states.
 4. See `docs/IOS.md` for the iOS pairing flow and the React Native client.
+5. Read `docs/GLOSSARY.md` for the shared terms: run, view, thread, inspector, approval, pairing, device token, variant, build manifest.
 
 Quickstart.
 
 1. Run `npm start` or `./scripts/zot-run.sh`.
 2. Open `http://localhost:8787/healthz` and expect ready state.
 3. Open `http://localhost:8787/` for the browser chat.
-4. Runs in waiting_tool show Approve and Cancel under their prompt line. Select an Activity row to see that run's tool events in the inspector.
+4. Open Approvals for runs in `waiting_tool`: each row shows the run's prompt line above Approve and Cancel. Select an Activity row to see that run's tool events in the inspector.
 5. Api lives under `http://localhost:8787/api/v1`. See `docs/API.md` for routes.
 6. Env vars are optional for the default path. See `docs/QUICKSTART.md` for the list.
 7. Chatops inbound needs `CHATOPS_INBOUND_SECRET`. See `docs/CHATOPS.md`.

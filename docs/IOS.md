@@ -140,15 +140,7 @@ Human gates stay open, in the plan numbering. G1 is `pod install` plus an `xcode
 
 ### Terms
 
-`GLOSSARY.md` does not exist in this repo yet. These five terms belong there when it does. They live here until then so the plan deltas are not lost.
-
-```text
-Bare React Native is a community CLI RN app with a checked in ios project, not Expo.
-Raw APNs token is the 64 hex device token from didRegisterForRemoteNotificationsWithDeviceToken.
-Tracer bullet is the thinnest end to end path, pair to token to runs to stream, proven before UI polish.
-Baked pair is the automation only pairing flavor driven by launch args, hidden from normal users.
-Human gate is a check that needs the Mac or the iPhone and cannot run on the Linux build host.
-```
+`docs/GLOSSARY.md` is the repo glossary, one line per term. The five client terms this section used to carry inline now live there too: bare React Native, raw APNs token, tracer bullet, baked pair, and human gate. Read the glossary instead of a copy here, so a definition is edited in one place.
 
 ## Build proof
 
