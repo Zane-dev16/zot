@@ -29,7 +29,7 @@
   "mode": "on",
   "subagent": "factory-agent",
   "check": {
-    "command": "bash scripts/prove.sh\nbash '/root/zanish-factory/zanish-factory/scripts/check-commits.sh' \"$(git rev-parse --show-toplevel)\""
+    "command": "set -e; bash scripts/prove.sh; bash '/root/zanish-factory/zanish-factory/scripts/check-commits.sh' \"$(git rev-parse --show-toplevel)\""
   },
   "identity": {
     "name": "Irell Zane",
