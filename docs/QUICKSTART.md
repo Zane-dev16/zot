@@ -42,7 +42,7 @@ Open Approvals in the sidebar (`#/approvals`). A run that needs approval is a ro
 
 ## Read Activity
 
-Activity lists the 30 newest runs. Each row shows title and state and update time. Select a row to open its tool events in the inspector. Activity has no Approve or Cancel buttons; runs that need a decision are in Approvals. Press Refresh to reload the list. The list refreshes on its own after you send a prompt. The count next to Activity shows how many rows are shown.
+Activity lists the 30 newest runs. Each row shows title and state and update time. Select a row to open its tool events in the inspector. Activity has no Approve or Cancel buttons; runs that need a decision are in Approvals. Press Refresh to reload the list. The list refreshes on its own after you send a prompt. The number next to Activity in the sidebar (`#runsCount`) is how many runs are loaded, up to the API's 100. The `N shown` count in the Activity toolbar (`#activityCount`) is how many rows the current view is showing, at most 30.
 
 Poll one run events with the since id.
 
