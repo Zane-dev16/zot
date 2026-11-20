@@ -7,8 +7,10 @@ Public routes in this list.
 ```text
 GET /healthz returns version plus state plus uptime
 POST /api/v1/pair/start returns code plus expiresAt, rate limited
-GET / returns browser UI
-GET /index.html plus /app.js plus /style.css serve web files
+GET / returns the browser console shell
+GET /index.html plus /css/* plus /js/* serve the console shell, its stylesheets, and its ES modules
+GET /build.json serves the committed build manifest (module count, per-file digests, sourceHash)
+GET /favicon.svg serves the icon
 ```
 
 Authed run routes in this list.

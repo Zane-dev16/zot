@@ -1,0 +1,632 @@
+/* Layout variants (M5): one flag, three structurally different consoles.
+   These are #app[data-variant="..."] overrides only. Console is the base every
+   other stylesheet defines, so the gate's default screenshots and the §4.7
+   selector contract are untouched. No selector is renamed or added per
+   variant: each one reuses the same ids, classes and data attributes and only
+   changes geometry, reading order and type.
+
+     console  208px sidebar | thread | 380px docked inspector   (base CSS)
+     ledger   44px icon rail | table-first main | slide-over inspector
+     tty      top tab row | two equal panes | monospace everywhere            */
+
+/* --- hook markup added by views/variants/ledger.js ---------------------- */
+.railIcon {
+	display: none;
+}
+
+/* ========================================================================== */
+/* ledger: an audit ledger - icon rail, hairline table rows, slide-over detail */
+/* ========================================================================== */
+#app[data-variant="ledger"] {
+	position: relative;
+	grid-template-columns: 44px minmax(0, 1fr);
+	grid-template-rows: var(--topbar-h) minmax(0, 1fr);
+}
+
+/* 44px rail, expanded on hover as an overlay so the main pane never reflows */
+#app[data-variant="ledger"] #sidebar {
+	grid-column: 1;
+	grid-row: 2;
+	width: 44px;
+	padding: 6px 4px;
+	gap: 2px;
+	overflow: visible;
+	z-index: 6;
+}
+
+#app[data-variant="ledger"] #sidebar a {
+	position: relative;
+	justify-content: center;
+	height: 32px;
+	padding: 0;
+}
+
+#app[data-variant="ledger"] #sidebar .railIcon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	font-size: 14px;
+	line-height: 1;
+	color: var(--muted);
+}
+
+#app[data-variant="ledger"] #sidebar a[aria-current="page"] .railIcon {
+	color: var(--text);
+}
+
+/* The label stays in the accessibility tree, clipped rather than display:none,
+   so a collapsed rail still names every link. Hover reveals it. */
+#app[data-variant="ledger"] #sidebar .railLabel {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
+#app[data-variant="ledger"] #sidebar #runsCount {
+	display: none;
+}
+
+/* Pending approvals stay visible as a dot while the rail is collapsed. */
+#app[data-variant="ledger"] #sidebar #approvalsCount {
+	position: absolute;
+	top: 5px;
+	right: 4px;
+	width: 6px;
+	height: 6px;
+	padding: 0;
+	overflow: hidden;
+	font-size: 0;
+	line-height: 0;
+	color: transparent;
+	background: var(--state-waiting);
+	border-radius: 50%;
+}
+
+#app[data-variant="ledger"] #sidebar:hover {
+	/* Absolute inside the sidebar's own grid area (row 2), so expanding the
+	   rail does not move the links under the cursor mid-click. */
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	width: 208px;
+	padding: 6px;
+	background: var(--panel);
+	border-right: 1px solid var(--line-strong);
+	box-shadow: 12px 0 28px rgba(0, 0, 0, 0.45);
+	transition: box-shadow 120ms ease;
+}
+
+#app[data-variant="ledger"] #sidebar:hover a {
+	justify-content: flex-start;
+	padding: 0 8px;
+}
+
+#app[data-variant="ledger"] #sidebar:hover .railIcon {
+	display: none;
+}
+
+#app[data-variant="ledger"] #sidebar:hover .railLabel {
+	position: static;
+	width: auto;
+	height: auto;
+	margin: 0;
+	overflow: visible;
+	clip-path: none;
+	white-space: normal;
+}
+
+#app[data-variant="ledger"] #sidebar:hover #runsCount {
+	display: inline;
+}
+
+#app[data-variant="ledger"] #sidebar:hover #approvalsCount {
+	position: static;
+	width: auto;
+	height: auto;
+	font-size: var(--fs-xs);
+	line-height: inherit;
+	color: var(--state-waiting);
+	background: transparent;
+}
+
+/* main pane: table-first. The thread loses its cards and becomes hairline rows
+   with a right-aligned state word and a dot (plan §8 state cue for ledger). */
+#app[data-variant="ledger"] #main {
+	padding: 10px 12px;
+	gap: 12px;
+}
+
+#app[data-variant="ledger"] #log {
+	gap: 0;
+	border-top: 1px solid var(--line);
+}
+
+#app[data-variant="ledger"] #log article {
+	grid-template-columns: minmax(0, 1fr);
+	column-gap: 0;
+	padding: 3px 8px;
+	background: transparent;
+	border: 0;
+	border-bottom: 1px solid var(--line);
+	border-radius: 0;
+}
+
+#app[data-variant="ledger"] #log article::before {
+	display: none;
+}
+
+#app[data-variant="ledger"] #log article > * {
+	grid-column: 1;
+}
+
+#app[data-variant="ledger"] .runHead {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto auto auto;
+	align-items: baseline;
+	gap: 10px;
+	min-height: 18px;
+}
+
+#app[data-variant="ledger"] .runHead .runTitle {
+	grid-column: 1;
+	font-size: var(--fs-sm);
+	font-weight: 500;
+}
+
+#app[data-variant="ledger"] .runHead .runMeta {
+	grid-column: 2;
+	justify-self: end;
+}
+
+#app[data-variant="ledger"] .runHead .runBadge {
+	grid-column: 3;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	justify-self: end;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	letter-spacing: 0.04em;
+}
+
+#app[data-variant="ledger"] .runHead .runBadge::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+#app[data-variant="ledger"] .runHead .inspectorOpen {
+	grid-column: 4;
+	margin-left: 0;
+	height: 20px;
+	padding: 0 6px;
+	font-size: var(--fs-xs);
+}
+
+#app[data-variant="ledger"] .runTokens {
+	margin-top: 2px;
+	max-height: 32px;
+	overflow: hidden;
+	font-size: var(--fs-xs);
+	color: var(--muted);
+}
+
+#app[data-variant="ledger"] .runToolNote {
+	margin-top: 1px;
+}
+
+#app[data-variant="ledger"] .runNeedsApproval {
+	margin-top: 3px;
+	height: 20px;
+}
+
+/* slide-over inspector: 420px, only while a run is selected (main expands) */
+#app[data-variant="ledger"] #inspector {
+	grid-column: auto;
+	grid-row: auto;
+	position: absolute;
+	top: var(--topbar-h);
+	right: 0;
+	bottom: 0;
+	width: 420px;
+	max-width: 92vw;
+	z-index: 8;
+	padding: 10px 12px;
+	background: var(--panel);
+	border-left: 1px solid var(--line-strong);
+	box-shadow: -16px 0 32px rgba(0, 0, 0, 0.45);
+}
+
+#app[data-variant="ledger"] #inspector[data-collapsed="true"] {
+	display: none;
+}
+
+/* approvals and activity use the same 24px hairline row */
+#app[data-variant="ledger"] #approvals,
+#app[data-variant="ledger"] #activity {
+	gap: 0;
+}
+
+#app[data-variant="ledger"] #approvals li,
+#app[data-variant="ledger"] #activity li {
+	background: transparent;
+	border: 0;
+	border-bottom: 1px solid var(--line);
+	border-radius: 0;
+}
+
+#app[data-variant="ledger"] #approvals li {
+	padding: 5px 8px;
+	gap: 2px;
+}
+
+#app[data-variant="ledger"] #approvals .runBadge {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+}
+
+#app[data-variant="ledger"] #approvals .runBadge::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+#app[data-variant="ledger"] #approvals .approvalRow {
+	margin-top: 0;
+}
+
+#app[data-variant="ledger"] #approvals .approvalRow .btn {
+	height: 22px;
+	padding: 0 8px;
+}
+
+#app[data-variant="ledger"] button.activityRun {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto auto auto;
+	gap: 10px;
+	height: 24px;
+	border-radius: 0;
+	font-size: var(--fs-sm);
+}
+
+#app[data-variant="ledger"] button.activityRun > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#app[data-variant="ledger"] .activityRun .activityTitle {
+	grid-column: 1;
+}
+
+#app[data-variant="ledger"] .activityRun .activityMeta {
+	grid-column: 2;
+	font-family: var(--mono);
+	font-size: var(--fs-xs);
+	color: var(--muted);
+}
+
+#app[data-variant="ledger"] .activityRun .activityWhen {
+	grid-column: 3;
+	font-family: var(--mono);
+	font-size: var(--fs-xs);
+	color: var(--muted);
+}
+
+#app[data-variant="ledger"] .activityRun .activityState {
+	grid-column: 4;
+	justify-self: end;
+	width: 15ch;
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 5px;
+	white-space: nowrap;
+	font-family: var(--mono);
+	font-size: var(--fs-xs);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+#app[data-variant="ledger"] .activityRun .activityState::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+/* ========================================================================== */
+/* tty: a terminal - top tab row, two equal panes, mono prose, fixed columns  */
+/* ========================================================================== */
+#app[data-variant="tty"] {
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	grid-template-rows: var(--topbar-h) 30px minmax(0, 1fr);
+	font-family: var(--mono);
+}
+
+/* no sidebar: the four views are tabs across the top */
+#app[data-variant="tty"] #topbar {
+	grid-column: 1 / -1;
+	grid-row: 1;
+}
+
+#app[data-variant="tty"] #sidebar {
+	grid-column: 1 / -1;
+	grid-row: 2;
+	flex-direction: row;
+	align-items: stretch;
+	gap: 0;
+	padding: 0 var(--pad);
+	background: var(--panel);
+	border-right: 0;
+	border-bottom: 1px solid var(--line);
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
+#app[data-variant="tty"] #sidebar a {
+	flex: 0 0 auto;
+	justify-content: flex-start;
+	gap: 6px;
+	height: 30px;
+	padding: 0 10px;
+	border-radius: 0;
+	border-bottom: 2px solid transparent;
+	color: var(--muted);
+}
+
+#app[data-variant="tty"] #sidebar a::before {
+	content: "[";
+	color: var(--line-strong);
+}
+
+#app[data-variant="tty"] #sidebar a::after {
+	content: "]";
+	color: var(--line-strong);
+}
+
+#app[data-variant="tty"] #sidebar a:hover {
+	background: var(--panel-2);
+	text-decoration: none;
+}
+
+#app[data-variant="tty"] #sidebar a[aria-current="page"] {
+	background: transparent;
+	box-shadow: none;
+	border-bottom-color: var(--accent);
+	color: #fff;
+}
+
+/* two equal panes, each scrolling on its own */
+#app[data-variant="tty"] #main {
+	grid-column: 1;
+	grid-row: 3;
+	padding: 10px 12px;
+	border-right: 1px solid var(--line);
+}
+
+/* Pairing has nothing to select: one pane, not two equal ones with a dead
+   "select a run" half. */
+#app[data-variant="tty"][data-inspector="hidden"] {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+#app[data-variant="tty"] #inspector {
+	grid-column: 2;
+	grid-row: 3;
+	padding: 10px 12px;
+	border-left: 0;
+}
+
+/* terminal chrome: square corners, hairline rules, no card radius */
+#app[data-variant="tty"] * {
+	border-radius: 0;
+}
+
+#app[data-variant="tty"] #log {
+	gap: 0;
+	border-top: 1px solid var(--line);
+}
+
+#app[data-variant="tty"] #log article {
+	grid-template-columns: minmax(0, 1fr);
+	column-gap: 0;
+	padding: 2px 8px;
+	background: transparent;
+	border: 0;
+	border-bottom: 1px solid var(--line);
+}
+
+#app[data-variant="tty"] #log article::before {
+	display: none;
+}
+
+#app[data-variant="tty"] #log article > * {
+	grid-column: 1;
+}
+
+/* fixed-width STATE column, no chrome: the terminal's state cue */
+#app[data-variant="tty"] .runHead {
+	display: grid;
+	grid-template-columns: 13ch minmax(0, 1fr) auto auto;
+	align-items: baseline;
+	gap: 8px;
+	min-height: 20px;
+}
+
+#app[data-variant="tty"] .runHead .runBadge {
+	grid-column: 1;
+	justify-self: start;
+	padding: 0;
+	border: 0;
+	letter-spacing: 0.02em;
+}
+
+#app[data-variant="tty"] .runHead .runTitle {
+	grid-column: 2;
+	font-size: var(--fs-sm);
+	font-weight: 400;
+}
+
+#app[data-variant="tty"] .runHead .runMeta {
+	grid-column: 3;
+	justify-self: end;
+	font-size: var(--fs-xs);
+}
+
+#app[data-variant="tty"] .runHead .inspectorOpen {
+	grid-column: 4;
+	margin-left: 0;
+	height: 18px;
+	padding: 0 6px;
+	font-size: var(--fs-xs);
+}
+
+#app[data-variant="tty"] .runTokens {
+	margin-top: 2px;
+	max-height: 32px;
+	overflow: hidden;
+	font-size: var(--fs-xs);
+	color: var(--muted);
+}
+
+#app[data-variant="tty"] #approvals,
+#app[data-variant="tty"] #activity {
+	gap: 0;
+}
+
+#app[data-variant="tty"] #approvals li,
+#app[data-variant="tty"] #activity li {
+	background: transparent;
+	border: 0;
+	border-bottom: 1px solid var(--line);
+	border-radius: 0;
+}
+
+#app[data-variant="tty"] #approvals li {
+	padding: 4px 8px;
+	gap: 2px;
+}
+
+#app[data-variant="tty"] #approvals .approvalRow {
+	margin-top: 0;
+}
+
+#app[data-variant="tty"] #approvals .runBadge {
+	padding: 0;
+	border: 0;
+}
+
+#app[data-variant="tty"] #approvals .approvalRow .btn {
+	height: 22px;
+}
+
+#app[data-variant="tty"] button.activityRun {
+	display: grid;
+	grid-template-columns: 13ch minmax(0, 1fr) auto auto;
+	gap: 8px;
+	height: 26px;
+	font-size: var(--fs-xs);
+}
+
+#app[data-variant="tty"] button.activityRun > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#app[data-variant="tty"] .activityRun .activityState {
+	grid-column: 1;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+}
+
+#app[data-variant="tty"] .activityRun .activityTitle {
+	grid-column: 2;
+}
+
+#app[data-variant="tty"] .activityRun .activityMeta {
+	grid-column: 3;
+	color: var(--muted);
+}
+
+#app[data-variant="tty"] .activityRun .activityWhen {
+	grid-column: 4;
+	color: var(--muted);
+}
+
+/* state color is still repeated by the word itself in every variant */
+#app[data-variant="ledger"] #activity li[data-state="running"] .activityState,
+#app[data-variant="tty"] #activity li[data-state="running"] .activityState {
+	color: var(--state-running);
+}
+
+#app[data-variant="ledger"] #activity li[data-state="waiting_tool"] .activityState,
+#app[data-variant="tty"] #activity li[data-state="waiting_tool"] .activityState {
+	color: var(--state-waiting);
+}
+
+#app[data-variant="ledger"] #activity li[data-state="done"] .activityState,
+#app[data-variant="tty"] #activity li[data-state="done"] .activityState {
+	color: var(--state-done);
+}
+
+#app[data-variant="ledger"] #activity li[data-state="failed"] .activityState,
+#app[data-variant="tty"] #activity li[data-state="failed"] .activityState {
+	color: var(--state-failed);
+}
+
+#app[data-variant="ledger"] #activity li[data-state="cancelled"] .activityState,
+#app[data-variant="tty"] #activity li[data-state="cancelled"] .activityState {
+	color: var(--state-cancelled);
+}
+
+#app[data-variant="ledger"] #activity li[data-state="queued"] .activityState,
+#app[data-variant="tty"] #activity li[data-state="queued"] .activityState {
+	color: var(--state-queued);
+}
+
+/* narrow viewports: the rail stays a rail and the two tty panes stack rather
+   than shrinking into unreadable halves. The 1280x800 gate is unaffected. */
+@media (max-width: 760px) {
+	#app[data-variant="tty"] {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: var(--topbar-h) 30px minmax(0, 1fr) auto;
+		height: auto;
+		min-height: 100vh;
+	}
+
+	#app[data-variant="tty"] #main {
+		grid-column: 1;
+		grid-row: 3;
+		border-right: 0;
+		border-bottom: 1px solid var(--line);
+	}
+
+	#app[data-variant="tty"] #inspector {
+		grid-column: 1;
+		grid-row: 4;
+		max-height: 60vh;
+		border-top: 1px solid var(--line);
+	}
+}

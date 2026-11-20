@@ -76,7 +76,7 @@ Screens. App picks PairScreen while the token is empty and RunsScreen after a pa
 
 Stores. The token lives in Keychain with the same identifiers as the Swift client, service `zot-token` and account `device-token`. The paired host is persisted in AsyncStorage beside it, host only and never the token, so relaunch reconnects where the user paired instead of the hard-coded default. The stream replay cursor is AsyncStorage too, now keyed per host as `zot.since.<host-slug>`, so switching daemons starts from that host's own cursor instead of reusing a cursor that means nothing to it. No token goes to AsyncStorage and no token goes to logs.
 
-Stream. The client connects to `/api/v1/stream` with token plus since, replays from the stored cursor, reconnects with backoff from 1s to 10s, and runs a stale socket watchdog at 2x the 15s server heartbeat, so 30s (`rn/src/api/stream.ts`). Live run state events update the list, and a `run.created` for an id the list has not seen prepends a row at the top, matching the daemon's newest-first list order, so a run created by the scheduler or the browser appears while the socket is live; other events for unknown ids are dropped. Polling stays as the fallback, so the list still refreshes when the stream is down. That matches the Swift client poll behavior and the browser contract in `web/app.js`.
+Stream. The client connects to `/api/v1/stream` with token plus since, replays from the stored cursor, reconnects with backoff from 1s to 10s, and runs a stale socket watchdog at 2x the 15s server heartbeat, so 30s (`rn/src/api/stream.ts`). Live run state events update the list, and a `run.created` for an id the list has not seen prepends a row at the top, matching the daemon's newest-first list order, so a run created by the scheduler or the browser appears while the socket is live; other events for unknown ids are dropped. Polling stays as the fallback, so the list still refreshes when the stream is down. That matches the Swift client poll behavior and the browser contract in `web/js/stream.js`.
 
 ### Native seams
 
@@ -140,15 +140,7 @@ Human gates stay open, in the plan numbering. G1 is `pod install` plus an `xcode
 
 ### Terms
 
-`GLOSSARY.md` does not exist in this repo yet. These five terms belong there when it does. They live here until then so the plan deltas are not lost.
-
-```text
-Bare React Native is a community CLI RN app with a checked in ios project, not Expo.
-Raw APNs token is the 64 hex device token from didRegisterForRemoteNotificationsWithDeviceToken.
-Tracer bullet is the thinnest end to end path, pair to token to runs to stream, proven before UI polish.
-Baked pair is the automation only pairing flavor driven by launch args, hidden from normal users.
-Human gate is a check that needs the Mac or the iPhone and cannot run on the Linux build host.
-```
+`docs/GLOSSARY.md` is the repo glossary, one line per term. The five client terms this section used to carry inline now live there too: bare React Native, raw APNs token, tracer bullet, baked pair, and human gate. Read the glossary instead of a copy here, so a definition is edited in one place.
 
 ## Build proof
 

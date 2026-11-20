@@ -1,0 +1,27 @@
+{
+	"version": 1,
+	"moduleCount": 14,
+	"sourceHash": "2224dea54eedba0321ca35428e7de7cc1644402582e479296a2572e5c4db7a07",
+	"files": {
+		"css/components.css": "sha256:282ce5a2771c04900051eb1a11847341c232cb7bee36df4056ca78884da71f76",
+		"css/layout.css": "sha256:9fd6620c8f5163c4bf7fb8e976fcf866c23062714f01d637aec957db4b68ace4",
+		"css/tokens.css": "sha256:42523d62078b659d6358680cf85acdd26725bafb3c612192b55da28c2c2030e0",
+		"css/variants.css": "sha256:1bb1fd1574adbeaa7fad9ce2f1e783fd10c85574c2bb92d527cf2ad11c3f7c6d",
+		"index.html": "sha256:23aaa7282a7abd40ed1ca1907a648d01584413aa4ffc106577d1414d239864bd",
+		"js/api.js": "sha256:c8ba7fe71cf91b596efd2719de004949d6f21732056262077c7dee023ec656b2",
+		"js/dom.js": "sha256:0a144d7824f5a83a2f142c8fe04a9a3b60e7ee8678267b66b08b38c932ae6475",
+		"js/format.js": "sha256:a90882184e35a9dd7bc88c88fe98e774b06da8a5b93e0331a6f80f20038e3391",
+		"js/main.js": "sha256:7f54dd094f5628d22dfd6bb3100019a493cde1b3ed6ff4aa46b09278fd99ebd1",
+		"js/render.js": "sha256:a8bf11ac05cd4588a8f5426d28cff6fedb7baa902fbccd2c458b5a263d2f49a8",
+		"js/store.js": "sha256:45982d1fd30c631aa2147d5b0efe7b7b51fed94d68f64dbc2b68052f57dd71ea",
+		"js/stream.js": "sha256:d06ccafa04db66e92d3c4d79c1c4ebeed4f98a5f79304985e3eb5232874a2e71",
+		"js/views/activity.js": "sha256:6cb3d0981a8b3c67a81cb7ddc0ca89db998db939ce70a21f5f47dbfa2a3e9a27",
+		"js/views/approvals.js": "sha256:d6878fd7609e79efcbda4ffa95652a38ee18ba61033496afa655501260cec655",
+		"js/views/chat.js": "sha256:e53c85f2363f6b980c5a144bbf2dcab77ab668e3ae165f7e1625c6e2be3acd91",
+		"js/views/inspector.js": "sha256:7728f45d148a2acb1a00ae110046d81933a80a45cd077a3491364b32d1b8fef0",
+		"js/views/pairing.js": "sha256:806d4cecb7821cadbc96f675153d23161a483f16f3d649f5b58b18281ae46167",
+		"js/views/variants/index.js": "sha256:fe6667bf6f5c34e8f68aecb87c2cc53e58837ce7db8094716050288c1483435d",
+		"js/views/variants/ledger.js": "sha256:f5cd0e6a7e62eefce3b58addf8b46cfe6ec41ae3b85d609b1c2d4a21bb37463c"
+	},
+	"builtAt": "2026-11-20T09:16:28.393Z"
+}

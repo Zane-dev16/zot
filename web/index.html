@@ -1,54 +1,222 @@
 <!doctype html>
 <html lang="en">
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>zot chat</title>
-  <link rel="stylesheet" href="/style.css" />
-  <main>
-    <header>
-      <h1>zot chat</h1>
-      <p id="status" data-kind="connecting">connecting</p>
-      <div id="connRow">
-        <span id="retryCount" aria-live="polite"></span>
-        <button id="retryNow" type="button">Retry now</button>
-      </div>
-    </header>
-    <section id="auth">
-      <label class="hidden" for="token">Device token</label>
-      <input
-        id="token"
-        type="password"
-        placeholder="device token"
-        autocomplete="off"
-        aria-label="Device token"
-      />
-      <button id="saveToken" type="button">Save</button>
-    </section>
-    <section id="log" aria-live="polite"></section>
-    <form id="composer">
-      <label class="hidden" for="box">Prompt</label>
-      <input
-        id="box"
-        placeholder="type here"
-        autocomplete="off"
-        aria-label="Prompt"
-      />
-      <button type="submit">Send</button>
-    </form>
-    <section id="activityWrap">
-      <h2>Activity <span id="activityCount" aria-live="polite"></span></h2>
-      <div id="activityRow">
-        <button id="refreshActivity" type="button">Refresh</button>
-        <span id="activityError" aria-live="polite"></span>
-      </div>
-      <ul id="activity"></ul>
-    </section>
-    <template id="approvalTemplate">
-      <div class="approvalRow">
-        <button type="button" data-action="approve">Approve</button>
-        <button type="button" data-action="cancel">Cancel</button>
-      </div>
-    </template>
-  </main>
-  <script src="/app.js"></script>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>zot · operator console</title>
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="stylesheet" href="/css/tokens.css" />
+		<link rel="stylesheet" href="/css/layout.css" />
+		<link rel="stylesheet" href="/css/components.css" />
+		<link rel="stylesheet" href="/css/variants.css" />
+	</head>
+	<body>
+		<div id="app" data-view="pairing" data-conn="boot" data-variant="console">
+			<header id="topbar">
+				<span id="brand">zot <span class="dim">·</span> operator console</span>
+				<h1 id="viewTitle" tabindex="-1">Pairing</h1>
+				<p id="status" data-kind="connecting">connecting</p>
+				<span id="retryCount" aria-live="polite"></span>
+				<button id="retryNow" class="btn btn-ghost" type="button">
+					Retry now
+				</button>
+				<span class="spacer"></span>
+				<span id="daemon" data-kind="unknown">daemon unknown</span>
+				<span id="build" data-kind="unknown">build unknown</span>
+				<select
+					id="variantSwitch"
+					aria-label="Layout variant"
+					title="layout variant"
+				>
+					<option value="console" selected>console</option>
+					<option value="ledger">ledger</option>
+					<option value="tty">tty</option>
+				</select>
+			</header>
+
+			<nav id="sidebar" aria-label="Views">
+				<a id="navChat" data-view="chat" href="#/chat">Chat</a>
+				<a id="navApprovals" data-view="approvals" href="#/approvals"
+					>Approvals <span id="approvalsCount" hidden>0</span></a
+				>
+				<a id="navActivity" data-view="activity" href="#/activity"
+					>Activity <span id="runsCount">0</span></a
+				>
+				<a id="navPairing" data-view="pairing" href="#/pairing">Pairing</a>
+			</nav>
+
+			<main id="main">
+				<section
+					id="view-chat"
+					class="view"
+					data-view-name="chat"
+					aria-label="Chat"
+				>
+					<p id="chatOlder" class="hint">
+						older runs live in <a href="#/activity">Activity</a>
+					</p>
+					<p id="chatError" role="alert"></p>
+					<p id="chatEmpty" class="empty" hidden>no runs yet — type a prompt below</p>
+					<div id="log" role="log" aria-label="Run thread"></div>
+					<form id="composer" autocomplete="off">
+						<label class="sr-only" for="box">Prompt</label>
+						<input
+							id="box"
+							placeholder="type a prompt — try `tool: shell echo hi`"
+							autocomplete="off"
+							aria-label="Prompt"
+						/>
+						<button id="send" class="btn" type="submit">Send</button>
+						<span id="composerHint" aria-live="polite"></span>
+					</form>
+				</section>
+
+				<section
+					id="view-approvals"
+					class="view"
+					data-view-name="approvals"
+					aria-label="Approvals"
+				>
+					<div class="viewBar">
+						<button id="approvalsRefresh" class="btn btn-ghost" type="button">
+							Refresh
+						</button>
+						<span id="approvalsError" role="alert"></span>
+					</div>
+					<ul id="approvals" role="list"></ul>
+					<p id="approvalsEmpty" class="empty" hidden>
+						nothing is waiting on you
+					</p>
+				</section>
+
+				<section
+					id="view-activity"
+					class="view"
+					data-view-name="activity"
+					aria-label="Activity"
+				>
+					<div class="viewBar">
+						<div id="activityFilter" role="group" aria-label="Filter runs">
+							<button type="button" data-filter="all" aria-pressed="true">
+								all
+							</button>
+							<button type="button" data-filter="waiting_tool" aria-pressed="false">
+								waiting
+							</button>
+							<button type="button" data-filter="running" aria-pressed="false">
+								running
+							</button>
+							<button type="button" data-filter="failed" aria-pressed="false">
+								failed
+							</button>
+							<button type="button" data-filter="done" aria-pressed="false">
+								done
+							</button>
+						</div>
+						<span id="activityCount" aria-live="polite"></span>
+						<button id="refreshActivity" class="btn btn-ghost" type="button">
+							Refresh
+						</button>
+						<span id="activityError" role="alert"></span>
+					</div>
+					<ul id="activity"></ul>
+					<p id="activityEmpty" class="empty" hidden>no runs yet</p>
+				</section>
+
+				<section
+					id="view-pairing"
+					class="view"
+					data-view-name="pairing"
+					aria-label="Pairing"
+				>
+					<section id="auth" class="card" aria-label="Device pairing">
+						<div class="pairTop">
+							<button id="pairStart" class="btn" type="button" disabled>
+								Pair this browser
+							</button>
+							<button id="pairConfirm" class="btn" type="button" disabled>
+								Confirm in this browser
+							</button>
+							<code id="pairCode" data-kind="empty">------</code>
+							<span id="pairExpiry"></span>
+						</div>
+						<p id="pairStatus" data-kind="idle" aria-live="assertive">
+							not paired — pair this browser or paste a token below
+						</p>
+						<button id="pairRetry" class="btn btn-ghost" type="button" hidden>
+							Retry
+						</button>
+						<button id="pairDone" class="btn" type="button" hidden>go to chat</button>
+						<p id="deviceSummary"></p>
+						<p id="pairNote">
+							This pairs the browser with the local daemon. The code comes back
+							to this page, so it is a self-pair, not a second factor.
+						</p>
+						<details id="pairFallback" open>
+							<summary>Enter a device token manually</summary>
+							<div class="row">
+								<label class="sr-only" for="token">Device token</label>
+								<input
+									id="token"
+									type="password"
+									placeholder="device token"
+									autocomplete="off"
+									spellcheck="false"
+									aria-label="Device token"
+								/>
+								<button id="saveToken" class="btn" type="button">Save</button>
+							</div>
+							<p id="tokenError" role="alert"></p>
+						</details>
+						<button id="signOut" class="btn btn-ghost" type="button">
+							Sign out
+						</button>
+					</section>
+				</section>
+			</main>
+
+			<aside id="inspector" data-collapsed="true" aria-label="Inspector">
+				<header class="inspectorHead">
+					<h2 id="inspectorTitle">Inspector</h2>
+					<button
+						id="inspectorClose"
+						class="btn btn-ghost"
+						type="button"
+						aria-label="Close inspector"
+					>
+						×
+					</button>
+				</header>
+				<div id="inspectorTabs" role="tablist" aria-label="Inspector tabs">
+					<button
+						type="button"
+						role="tab"
+						data-tab="details"
+						aria-selected="true"
+						aria-controls="inspectorBody"
+					>
+						Details
+					</button>
+					<button
+						type="button"
+						role="tab"
+						data-tab="events"
+						aria-selected="false"
+						aria-controls="inspectorBody"
+					>
+						Events
+					</button>
+				</div>
+				<div id="inspectorBody" role="tabpanel" aria-live="off">
+					<p class="empty">select a run</p>
+				</div>
+				<button id="inspectorGoApprove" class="btn" type="button" hidden>
+					open in Approvals
+				</button>
+			</aside>
+
+			<div id="live" class="sr-only" aria-live="polite" aria-atomic="false"></div>
+		</div>
+		<script type="module" src="/js/main.js"></script>
+	</body>
 </html>

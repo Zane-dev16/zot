@@ -1,6 +1,6 @@
 # Quickstart
 
-You will boot the daemon on your machine and send one prompt from the browser chat. You will approve one waiting run and find its tool events in Activity.
+You will boot the daemon on your machine and send one prompt from the browser chat. You will approve one waiting run in Approvals and read its tool events in the inspector.
 
 You need Node 22 or later and curl. No build step exists. No npm install is needed for the default path.
 
@@ -34,15 +34,15 @@ Open this address in a browser.
 http://127.0.0.1:8787/
 ```
 
-Save the device token in the top field. Type a prompt in the composer and press Send. The run appears in the live log. The status line shows live when the stream is connected. It shows reconnecting with a retry count when the socket drops. Press Retry now to retry at once.
+There is no token field in the topbar. An unpaired browser boots on the Pairing view, where Pair this browser runs the code flow and confirms it in the same page, and the manual fallback under Enter a device token manually takes a token you already have. Either way the token goes to `localStorage`, never to the address bar. Type a prompt in the composer and press Send. The run appears in the live thread. The status chip shows live when the stream is connected, reconnecting with a retry count when the socket drops, and offline when it stops retrying. Press Retry now to retry at once.
 
 ## Approve one run
 
-A run that needs approval shows a highlighted card. The card names the waiting tool. It shows Approve and Cancel buttons. Approve moves the run from waiting_tool to running. Cancel moves the run to cancelled. A bad transition returns 409. The button labels name the tool when the tool is known.
+Open Approvals in the sidebar (`#/approvals`). A run that needs approval is a row in that queue: the run's own prompt line in mono, a short note, then the Approve and Cancel button row. Approve moves the run from waiting_tool to running, and a queued run approves straight to running. Cancel moves the run to cancelled. A bad transition returns 409. Chat, Activity, and the inspector never perform a transition; their rows link here.
 
 ## Read Activity
 
-Activity lists the 30 newest runs. Each row shows title and state and update time. Press a row to load its tool events. A run in waiting_tool also shows an Approve button in Activity. Press Refresh to reload the list. The list refreshes on its own after you send a prompt. The count next to Activity shows how many rows are shown.
+Activity lists the 30 newest runs. Each row shows title and state and update time. Select a row to open its tool events in the inspector. Activity has no Approve or Cancel buttons; runs that need a decision are in Approvals. Press Refresh to reload the list. The list refreshes on its own after you send a prompt. The number next to Activity in the sidebar (`#runsCount`) is how many runs are loaded, up to the API's 100. The `N shown` count in the Activity toolbar (`#activityCount`) is how many rows the current view is showing, at most 30.
 
 Poll one run events with the since id.
 
